@@ -1,7 +1,8 @@
 """Uygulama açıldığında hazır gelen Samsun örnek verileri.
 
-Tüm konumlar "İsim (enlem, boylam)" biçiminde koordinatlıdır: depo Google Haritalar'dan,
-duraklar Nominatim'in bulduğu konumlardan alındı ve haritada gözle doğrulandı.
+Tüm konumlar "İsim (enlem, boylam)" biçiminde koordinatlıdır: depo, Kurupelit Sahil, Körfez
+Muhtarlığı ve Yaşar Doğu Spor Salonu Google Haritalar'dan; diğer duraklar Nominatim'in bulduğu
+konumlardan alındı. Hepsi haritada gözle doğrulandı.
 Böylece demo, konum servislerine hiç sormadan her açılışta aynı sonucu verir.
 
 Adresler bilerek "karışık" sırada yazıldı: böylece optimize planın girilen
@@ -11,10 +12,10 @@ sıraya göre ne kadar tasarruf sağladığı net görülür.
 ORNEK_DEPO = "İlkadım Sanayi Sitesi (41.2767769, 36.3540910)"
 
 ORNEK_ADRESLER = [
-    "Kurupelit, Atakum, Samsun (41.364953, 36.227516)",
-    "Yaşardoğu Mahallesi, Canik, Samsun (41.270690, 36.321581)",
+    "Kurupelit Sahil, Atakum, Samsun (41.361528, 36.233944)",
+    "Yaşar Doğu Spor Salonu, Tekkeköy, Samsun (41.2262993, 36.4526196)",
     "Pazar Mahallesi, İlkadım, Samsun (41.295010, 36.331358)",
-    "Körfez Mahallesi, Atakum, Samsun (41.362762, 36.228211)",
+    "Körfez Mahallesi Muhtarlığı, Atakum, Samsun (41.360083, 36.233472)",
     "Derebahçe Mahallesi, İlkadım, Samsun (41.265636, 36.337348)",
     "Mimar Sinan Mahallesi, Atakum, Samsun (41.330907, 36.277384)",
     "Kılıçdede Mahallesi, İlkadım, Samsun (41.279967, 36.348052)",
