@@ -145,6 +145,10 @@ ruff check .            # kod kalitesi
 
 - Nominatim ve OSRM'in **ücretsiz demo sunucuları** kullanılıyor; yoğun/ticari kullanım için kendi sunucunuzu kurmanız gerekir.
 - Süreler **serbest akış** trafiğine göredir; anlık trafik dahil değildir.
+- Optimizasyon **sezgisel** bir yöntemdir (OR-Tools birkaç saniye arar): sonuç çok iyidir ama 15 adreste kanıtlanmış en iyi
+  çözüm olduğu garanti edilmez. Küçük örneklerde kesin optimumu bulduğu testlerle doğrulanmıştır.
+- Bir araç günde **tek sefer** yapar; yük filoya sığmazsa ikinci sefer planlanmaz, uygulama araç eklemenizi ister.
+- Araç başına **mesai süresi sınırı** yoktur; uzun turlar için "En uzun tur" değerini kontrol edin.
 - Tüm araçlar aynı kapasitededir ve tek bir yük birimi (kg) kullanılır. OR-Tools'un desteklediği şu özellikler kolayca eklenebilir:
   - **Farklı kapasiteli araçlar** (ör. kamyonet + kamyon) ve ikinci bir yük boyutu (desi/hacim)
   - **Zaman pencereleri** (VRPTW — "müşteri 10:00–12:00 arası")
