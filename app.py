@@ -1,7 +1,7 @@
 """Teslimat Rota Planlayıcı — Streamlit arayüzü.
 
 Akış: Adresler → (geocoding) koordinatlar → (mesafe) mesafe matrisi
-      → (optimizasyon) en kısa sıra → harita + tablo + karşılaştırma + Excel
+      → (optimizasyon) araç rotaları → harita + tablolar + karşılaştırma + Excel
 Çalıştırma: streamlit run app.py
 """
 
@@ -14,9 +14,13 @@ import geocoding
 import mesafe
 import optimizasyon
 import rapor
-from ornek_veriler import ORNEK_ADRESLER, ORNEK_DEPO, YEDEK_KOORDINATLAR
+from ornek_veriler import (ORNEK_ADRESLER, ORNEK_ARAC_SAYISI, ORNEK_DEPO, ORNEK_KAPASITE_KG,
+                           ORNEK_TALEPLER, YEDEK_KOORDINATLAR)
 
 MIN_ADRES, MAX_ADRES = 3, 15
+MAX_ARAC = 5
+DEPO_RENGI = "#d1242f"
+ARAC_RENKLERI = ["#1f6feb", "#2da44e", "#bf8700", "#8250df", "#0a7f8c"]  # depo kırmızısından farklı
 
 st.set_page_config(page_title="Teslimat Rota Planlayıcı", page_icon="🚚", layout="wide")
 
@@ -24,7 +28,7 @@ st.set_page_config(page_title="Teslimat Rota Planlayıcı", page_icon="🚚", la
 # ---------------------------------------------------------------------------
 # Hesaplama
 # ---------------------------------------------------------------------------
-def rotayi_hesapla(depo, adresler, servis_suresi_dk):
+def rotayi_hesapla(depo, adresler, talepler, kapasite, arac_sayisi, servis_suresi_dk):
     """Tüm adımları sırayla çalıştırıp sonuçları bir sözlükte döner."""
     tum_adresler = [depo] + adresler  # 0. indeks her zaman depo
 
@@ -36,6 +40,9 @@ def rotayi_hesapla(depo, adresler, servis_suresi_dk):
         ilerleme=lambda i, n, adres: cubuk.progress(i / n, text=f"Konum aranıyor ({i}/{n}): {adres}"),
     )
     cubuk.empty()
+    # Talebi noktanın içine koyuyoruz: bulunamayan adresler elenince talepler kaymasın.
+    for nokta, talep in zip(noktalar, [0] + talepler):
+        nokta["talep"] = talep
 
     if noktalar[0]["kaynak"] == "bulunamadi":
         st.error(f"Depo adresi bulunamadı: **{depo}**. Lütfen daha açık yazın (ör. 'Mahalle, İlçe, İl').")
@@ -47,33 +54,42 @@ def rotayi_hesapla(depo, adresler, servis_suresi_dk):
         return None
 
     koordinatlar = [(n["enlem"], n["boylam"]) for n in noktalar]
+    talep_listesi = [n["talep"] for n in noktalar]
 
     # 2) Mesafe ve süre matrisi
     with st.spinner("Yol mesafeleri hesaplanıyor (OSRM)…"):
         matris = mesafe.mesafe_matrisi(koordinatlar)
 
     # 3) Optimizasyon + girilen sıra ile karşılaştırma
-    with st.spinner("En kısa rota aranıyor (OR-Tools)…"):
-        optimize_rota = optimizasyon.en_kisa_rota(matris["mesafe_km"])
-    girilen_rota = optimizasyon.girilen_sira_rotasi(len(noktalar))
+    with st.spinner("En kısa rotalar aranıyor (OR-Tools)…"):
+        optimize_rotalar = optimizasyon.kapasiteli_rotalar(
+            matris["mesafe_km"], talep_listesi, kapasite, arac_sayisi, sure_limiti_sn=3,
+        )
+    if optimize_rotalar is None:
+        st.error(f"{arac_sayisi} araç × {kapasite} kg ile tüm teslimatları taşıyan bir plan bulunamadı. "
+                 "Araç sayısını veya kapasiteyi artırın.")
+        return None
+    girilen_rotalar = optimizasyon.girilen_sira_rotalari(talep_listesi, kapasite)
 
-    # 4) Harita için gerçek yol çizgisi
-    with st.spinner("Rota çizgisi hazırlanıyor…"):
-        cizgi = mesafe.rota_geometrisi([koordinatlar[i] for i in optimize_rota])
+    # 4) Harita için her aracın gerçek yol çizgisi
+    with st.spinner("Rota çizgileri hazırlanıyor…"):
+        cizgiler = [mesafe.rota_geometrisi([koordinatlar[i] for i in rota]) for rota in optimize_rotalar]
 
-    def ozet(rota):
-        km = optimizasyon.rota_uzunlugu(matris["mesafe_km"], rota)
-        dk = optimizasyon.rota_uzunlugu(matris["sure_dk"], rota) + servis_suresi_dk * (len(noktalar) - 1)
-        return km, dk
+    def ozet(rotalar):
+        km = optimizasyon.toplam_uzunluk(matris["mesafe_km"], rotalar)
+        dk = sum(rapor.rota_suresi(r, matris["sure_dk"], servis_suresi_dk) for r in rotalar)
+        return km, dk, len(rotalar)
 
     return {
         "noktalar": noktalar,
         "matris": matris,
-        "optimize_rota": optimize_rota,
-        "optimize": ozet(optimize_rota),
-        "girilen": ozet(girilen_rota),
-        "cizgi": cizgi,
+        "optimize_rotalar": optimize_rotalar,
+        "optimize": ozet(optimize_rotalar),
+        "girilen": ozet(girilen_rotalar),
+        "cizgiler": cizgiler,
         "bulunamayanlar": bulunamayanlar,
+        "kapasite": kapasite,
+        "arac_sayisi": arac_sayisi,
         "servis_suresi_dk": servis_suresi_dk,
     }
 
@@ -83,29 +99,38 @@ def sure_metni(dakika):
     return f"{saat} sa {dk} dk" if saat else f"{dk} dk"
 
 
+def _daire_ikon(etiket, renk):
+    return folium.DivIcon(
+        icon_size=(30, 30), icon_anchor=(15, 15),
+        html=f'<div style="background:{renk};color:#fff;border:2px solid #fff;border-radius:50%;'
+             f'width:30px;height:30px;display:flex;align-items:center;justify-content:center;'
+             f'font-weight:700;font-size:13px;box-shadow:0 1px 4px rgba(0,0,0,.4)">{etiket}</div>',
+    )
+
+
 def harita_olustur(sonuc):
-    noktalar, rota = sonuc["noktalar"], sonuc["optimize_rota"]
-    harita = folium.Map(location=[noktalar[0]["enlem"], noktalar[0]["boylam"]], zoom_start=12)
+    noktalar = sonuc["noktalar"]
+    depo = noktalar[0]
+    harita = folium.Map(location=[depo["enlem"], depo["boylam"]], zoom_start=12)
 
-    folium.PolyLine(sonuc["cizgi"], color="#1f6feb", weight=5, opacity=0.8, tooltip="Optimize rota").add_to(harita)
+    # Her araç kendi renginde: rota çizgisi + ziyaret sırasına göre numaralı duraklar.
+    for arac_no, (rota, cizgi) in enumerate(zip(sonuc["optimize_rotalar"], sonuc["cizgiler"]), start=1):
+        renk = ARAC_RENKLERI[(arac_no - 1) % len(ARAC_RENKLERI)]
+        folium.PolyLine(cizgi, color=renk, weight=5, opacity=0.8, tooltip=f"Araç {arac_no}").add_to(harita)
+        for sira, dugum in enumerate(rota[1:-1], start=1):
+            nokta = noktalar[dugum]
+            baslik = f"Araç {arac_no} · {sira}. durak"
+            folium.Marker(
+                [nokta["enlem"], nokta["boylam"]], icon=_daire_ikon(sira, renk),
+                tooltip=f"{baslik}: {nokta['adres']} ({nokta['talep']} kg)",
+                popup=folium.Popup(f"<b>{baslik}</b><br>{nokta['bulunan_adres']}<br>Teslim: {nokta['talep']} kg",
+                                   max_width=300),
+            ).add_to(harita)
 
-    # Depo: kırmızı "D"; teslimat durakları: ziyaret sırasına göre numaralı mavi daire.
-    for sira, dugum in enumerate(rota[:-1]):
-        nokta = noktalar[dugum]
-        depo_mu = sira == 0
-        etiket, renk = ("D", "#d1242f") if depo_mu else (str(sira), "#1f6feb")
-        ikon = folium.DivIcon(
-            icon_size=(30, 30), icon_anchor=(15, 15),
-            html=f'<div style="background:{renk};color:#fff;border:2px solid #fff;border-radius:50%;'
-                 f'width:30px;height:30px;display:flex;align-items:center;justify-content:center;'
-                 f'font-weight:700;font-size:13px;box-shadow:0 1px 4px rgba(0,0,0,.4)">{etiket}</div>',
-        )
-        baslik = "DEPO" if depo_mu else f"{sira}. durak"
-        folium.Marker(
-            [nokta["enlem"], nokta["boylam"]], icon=ikon,
-            tooltip=f"{baslik}: {nokta['adres']}",
-            popup=folium.Popup(f"<b>{baslik}</b><br>{nokta['bulunan_adres']}", max_width=300),
-        ).add_to(harita)
+    folium.Marker(
+        [depo["enlem"], depo["boylam"]], icon=_daire_ikon("D", DEPO_RENGI),
+        tooltip=f"DEPO: {depo['adres']}", popup=folium.Popup(f"<b>DEPO</b><br>{depo['bulunan_adres']}", max_width=300),
+    ).add_to(harita)
 
     harita.fit_bounds([[n["enlem"], n["boylam"]] for n in noktalar], padding=(30, 30))
     return harita
@@ -115,35 +140,57 @@ def harita_olustur(sonuc):
 # Arayüz
 # ---------------------------------------------------------------------------
 st.title("🚚 Teslimat Rota Planlayıcı")
-st.caption("Depodan çıkıp tüm adreslere uğrayan ve depoya dönen **en kısa** rotayı hesaplar. "
-           "Ücretsiz servisler: OpenStreetMap Nominatim, OSRM, Google OR-Tools.")
+st.caption("Depodan çıkıp tüm adreslere uğrayan ve depoya dönen **en kısa** rotaları, araç kapasitesini "
+           "aşmadan hesaplar. Ücretsiz servisler: OpenStreetMap Nominatim, OSRM, Google OR-Tools.")
 
 with st.sidebar:
     st.header("📍 Girdiler")
     depo = st.text_input("Depo (başlangıç ve bitiş noktası)", value=ORNEK_DEPO)
     st.markdown(f"**Teslimat adresleri** ({MIN_ADRES}–{MAX_ADRES} adet)")
     adres_tablosu = st.data_editor(
-        pd.DataFrame({"Adres": ORNEK_ADRESLER}),
+        pd.DataFrame({"Adres": ORNEK_ADRESLER, "Talep (kg)": ORNEK_TALEPLER}),
         num_rows="dynamic", hide_index=True, key="adresler", width="stretch",
+        column_config={
+            "Adres": st.column_config.TextColumn(width=140),
+            "Talep (kg)": st.column_config.NumberColumn("kg", width=60, min_value=0, step=1, default=0, format="%d"),
+        },
     )
+
+    st.markdown("**🚛 Araç filosu**")
+    kapasite = st.number_input("Araç kapasitesi (kg)", min_value=1, value=ORNEK_KAPASITE_KG, step=50)
+    arac_sayisi = st.number_input("En fazla araç sayısı", min_value=1, max_value=MAX_ARAC, value=ORNEK_ARAC_SAYISI)
     servis_suresi = st.number_input("Durak başı teslim süresi (dk)", min_value=0, max_value=60, value=5)
     hesapla = st.button("Rotayı Hesapla", type="primary", width="stretch")
-    st.caption("İpucu: Adresleri 'Mahalle, İlçe, İl' biçiminde yazın. "
-               "Nominatim kuralı gereği her adres ~1 sn sürer; aynı adres ikinci kez hızlı gelir.")
+    st.caption("İpucu: Adresleri 'Mahalle, İlçe, İl' biçiminde yazın. Kapasite kısıtı istemiyorsanız "
+               "talepleri 0 bırakın. Nominatim kuralı gereği her adres ~1 sn sürer; aynı adres ikinci kez hızlı gelir.")
 
 if hesapla:
-    adresler = [str(a).strip() for a in adres_tablosu["Adres"].dropna() if str(a).strip()]
+    satirlar = adres_tablosu.dropna(subset=["Adres"])
+    satirlar = satirlar[satirlar["Adres"].astype(str).str.strip() != ""]
+    adresler = satirlar["Adres"].astype(str).str.strip().tolist()
+    talepler = satirlar["Talep (kg)"].fillna(0).astype(int).tolist()
+    en_az_arac = optimizasyon.gereken_en_az_arac(talepler, kapasite)
+    asiri = [a for a, t in zip(adresler, talepler) if t > kapasite]
+
     if not depo.strip():
         st.error("Depo adresi boş olamaz.")
     elif not MIN_ADRES <= len(adresler) <= MAX_ADRES:
         st.error(f"{MIN_ADRES} ile {MAX_ADRES} arasında teslimat adresi girin (şu an {len(adresler)}).")
+    elif asiri:
+        st.error(f"Bu adreslerin talebi tek bir aracın kapasitesinden ({kapasite} kg) büyük: {', '.join(asiri)}")
+    elif en_az_arac > arac_sayisi:
+        st.error(f"Toplam talep {sum(talepler)} kg; {kapasite} kg'lık araçlarla en az **{en_az_arac} araç** gerekir "
+                 f"(şu an {arac_sayisi}).")
     else:
         # Sonucu session_state'e koyuyoruz: harita etkileşiminde sayfa yenilense de kaybolmasın.
-        st.session_state["sonuc"] = rotayi_hesapla(depo.strip(), adresler, servis_suresi)
+        st.session_state["sonuc"] = rotayi_hesapla(
+            depo.strip(), adresler, talepler, int(kapasite), int(arac_sayisi), servis_suresi,
+        )
 
 sonuc = st.session_state.get("sonuc")
 if not sonuc:
-    st.info("👈 Soldan depo ve adresleri girip **Rotayı Hesapla**'ya basın. Samsun örnek adresleri hazır.")
+    st.info("👈 Soldan depo, adresler ve araç bilgilerini girip **Rotayı Hesapla**'ya basın. "
+            "Samsun örnek verileri hazır.")
     st.stop()
 
 # --- Uyarılar
@@ -155,49 +202,63 @@ if sonuc["matris"]["kaynak"] == "tahmini":
     st.warning("Yol mesafesi servisine (OSRM) ulaşılamadı; mesafeler kuş uçuşu × "
                f"{mesafe.YOL_KATSAYISI} ile **tahmini** hesaplandı.")
 
+# --- Tablolar (özet kartları da bunlardan beslenir)
+mesafe_km, sure_dk = sonuc["matris"]["mesafe_km"], sonuc["matris"]["sure_dk"]
+arac_tablosu = rapor.arac_ozeti(sonuc["optimize_rotalar"], sonuc["noktalar"], mesafe_km, sure_dk,
+                                sonuc["kapasite"], sonuc["servis_suresi_dk"])
+durak_tablosu = rapor.durak_tablosu(sonuc["optimize_rotalar"], sonuc["noktalar"], mesafe_km, sure_dk,
+                                    sonuc["servis_suresi_dk"])
+
 # --- Özet kartları
-opt_km, opt_dk = sonuc["optimize"]
-gir_km, gir_dk = sonuc["girilen"]
-k1, k2, k3 = st.columns(3)
+opt_km, opt_dk, opt_arac = sonuc["optimize"]
+gir_km, gir_dk, gir_arac = sonuc["girilen"]
+toplam_talep = sum(n["talep"] for n in sonuc["noktalar"])
+k1, k2, k3, k4 = st.columns(4)
 k1.metric("Toplam mesafe", f"{opt_km:.1f} km")
-k2.metric("Tahmini süre", sure_metni(opt_dk), help="Sürüş süresi + durak başı teslim süresi")
-k3.metric("Teslimat durağı", len(sonuc["noktalar"]) - 1)
+k2.metric("Kullanılan araç", f"{opt_arac} / {sonuc['arac_sayisi']}")
+k3.metric("Ortalama doluluk", f"%{toplam_talep / (opt_arac * sonuc['kapasite']) * 100:.0f}",
+          help="Toplam yük ÷ (kullanılan araç × kapasite)")
+k4.metric("En uzun tur", sure_metni(arac_tablosu["Süre (dk)"].max()),
+          help="Araçlar aynı anda yola çıkarsa son aracın depoya dönüş süresi (sürüş + teslim)")
 
 # --- Karşılaştırma kutusu
 tasarruf = optimizasyon.tasarruf_yuzdesi(gir_km, opt_km)
 st.success(
-    f"📊 **Girilen sırayla gitseydin {gir_km:.1f} km**, **optimize rota {opt_km:.1f} km** → "
-    f"**tasarruf %{tasarruf:.1f}** ({gir_km - opt_km:.1f} km, yaklaşık {sure_metni(max(gir_dk - opt_dk, 0))} daha az)."
+    f"📊 **Girilen sırayla gitseydin {gir_km:.1f} km** ({gir_arac} araç, adresler sırayla yüklenip araç dolunca "
+    f"yenisine geçilerek), **optimize plan {opt_km:.1f} km** ({opt_arac} araç) → **tasarruf %{tasarruf:.1f}** "
+    f"({gir_km - opt_km:.1f} km, toplam araç süresinde yaklaşık {sure_metni(max(gir_dk - opt_dk, 0))} daha az)."
 )
 
-# --- Harita ve tablo
+# --- Harita ve tablolar
 sol, sag = st.columns([3, 2])
 with sol:
     st.subheader("🗺️ Rota haritası")
     st_folium(harita_olustur(sonuc), height=520, use_container_width=True, returned_objects=[])
 with sag:
+    st.subheader("🚛 Araçlar")
+    st.dataframe(arac_tablosu, hide_index=True, width="stretch")
     st.subheader("📋 Durak sırası")
-    tablo = rapor.durak_tablosu(
-        sonuc["optimize_rota"], sonuc["noktalar"],
-        sonuc["matris"]["mesafe_km"], sonuc["matris"]["sure_dk"], sonuc["servis_suresi_dk"],
-    )
-    st.dataframe(tablo.drop(columns=["Enlem", "Boylam"]), hide_index=True, width="stretch")
+    st.dataframe(durak_tablosu.drop(columns=["Enlem", "Boylam"]), hide_index=True, width="stretch")
 
 # --- Excel indirme
 ozet = {
     "Depo": sonuc["noktalar"][0]["adres"],
     "Teslimat durağı sayısı": len(sonuc["noktalar"]) - 1,
-    "Optimize rota (km)": round(opt_km, 2),
-    "Optimize rota süresi (dk)": round(opt_dk, 1),
+    "Toplam talep (kg)": toplam_talep,
+    "Araç kapasitesi (kg)": sonuc["kapasite"],
+    "Kullanılan araç": opt_arac,
+    "Optimize plan (km)": round(opt_km, 2),
+    "Optimize plan toplam araç süresi (dk)": round(opt_dk, 1),
     "Girilen sıra (km)": round(gir_km, 2),
-    "Girilen sıra süresi (dk)": round(gir_dk, 1),
+    "Girilen sıra araç sayısı": gir_arac,
+    "Girilen sıra toplam araç süresi (dk)": round(gir_dk, 1),
     "Tasarruf (%)": round(tasarruf, 1),
     "Durak başı teslim süresi (dk)": sonuc["servis_suresi_dk"],
     "Mesafe kaynağı": "OSRM (gerçek yol)" if sonuc["matris"]["kaynak"] == "osrm" else "Tahmini (kuş uçuşu × katsayı)",
 }
 st.download_button(
     "⬇️ Sonucu Excel olarak indir",
-    data=rapor.excel_olustur(tablo, ozet),
+    data=rapor.excel_olustur(ozet, {"Araçlar": arac_tablosu, "Durak Sırası": durak_tablosu}),
     file_name="teslimat_rotasi.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 )

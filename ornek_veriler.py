@@ -17,6 +17,11 @@ ORNEK_ADRESLER = [
     "Kılıçdede Mahallesi, İlkadım, Samsun",
 ]
 
+# Her adresin teslimat miktarı (kg). Toplam 1580 kg; 800 kg'lık araçla en az 2 araç gerekir.
+ORNEK_TALEPLER = [180, 250, 120, 300, 200, 150, 220, 160]
+ORNEK_KAPASITE_KG = 800
+ORNEK_ARAC_SAYISI = 3
+
 # Nominatim'e ulaşılamazsa (internet yok, servis yoğun vb.) demo yine
 # çalışsın diye örnek adreslerin YAKLAŞIK koordinatları (enlem, boylam).
 # Normal durumda bu değerler kullanılmaz; gerçek sonuç Nominatim'den gelir.

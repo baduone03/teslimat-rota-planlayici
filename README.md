@@ -3,7 +3,7 @@
 ![Testler](https://github.com/baduone03/teslimat-rota-planlayici/actions/workflows/testler.yml/badge.svg)
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://teslimat-rota-planlayici.streamlit.app)
 
-Bir depodan çıkıp **3–15 teslimat adresine** uğrayan ve depoya geri dönen **en kısa rotayı** hesaplayan web uygulaması.
+Bir depodan çıkıp **3–15 teslimat adresine** uğrayan ve depoya geri dönen **en kısa rotaları**, **araç kapasitesini aşmadan** hesaplayan web uygulaması.
 Python + Streamlit ile yazıldı; **tamamen ücretsiz** servisler kullanır, **API anahtarı gerekmez**.
 
 🔗 **Canlı demo:** [teslimat-rota-planlayici.streamlit.app](https://teslimat-rota-planlayici.streamlit.app)
@@ -19,11 +19,13 @@ Bu uygulama:
 
 - Adresleri haritada bulur,
 - Noktalar arasındaki **gerçek yol mesafelerini** hesaplar,
-- **En kısa ziyaret sırasını** bulur,
+- Adresleri **araç kapasitesine (kg) göre araçlara paylaştırır** ve her aracın **en kısa ziyaret sırasını** bulur,
+- Her aracın **yükünü ve doluluk oranını** gösterir,
 - Sonucu haritada numaralı duraklarla, tabloda ve Excel dosyasında verir,
 - "Girilen sırayla gitseydin **X km**, optimize rota **Y km**, tasarruf **%Z**" karşılaştırmasıyla kazancı gösterir.
 
-Samsun örneğinde (Tekkeköy deposu, 8 mahalle) adresleri yazıldığı sırayla gezmek **126,0 km**, optimize rota ise **63,8 km**: **%49,4 tasarruf** (yaklaşık 1 saat daha az yol).
+Samsun örneğinde (Tekkeköy deposu, 8 mahalle) tek araçla adresleri yazıldığı sırayla gezmek **126,0 km**, optimize rota ise **63,8 km**: **%49,4 tasarruf** (yaklaşık 1 saat daha az yol).
+Aynı adreslere toplam 1580 kg teslimat ve 800 kg'lık araçlar verildiğinde (en az 2 araç gerekir), uygulama yükü araçlara paylaştırıp her aracın doluluk oranını gösterir.
 
 ## ⚙️ Nasıl çalışır? (adım adım mantık)
 
@@ -41,17 +43,24 @@ N nokta için N×N'lik bir tablo oluştururuz: `matris[i][j]` = i noktasından j
 Bunu **OSRM** `/table` servisi tek istekte verir. Tek yönlü yollar yüzünden A→B ile B→A farklı olabilir; model bunu doğal olarak destekler.
 OSRM'e ulaşılamazsa uygulama durmaz: kuş uçuşu mesafe (Haversine formülü) × 1,3 yol katsayısıyla **tahmini** değer kullanır ve ekranda uyarır.
 
-**3. En kısa sıra (`optimizasyon.py`)**
-Bu, lojistikte meşhur **Gezgin Satıcı Problemi**dir (TSP). 15 adreste olası sıra sayısı 15! ≈ **1,3 trilyon** olduğundan hepsini denemek pratik değildir.
-Google **OR-Tools** önce hızlı bir başlangıç çözümü kurar (*Path Cheapest Arc*: her adımda en ucuz bağlantıyı seç), sonra *Guided Local Search* ile bu rotayı 2 saniye boyunca iyileştirir.
+**3. Araç rotaları (`optimizasyon.py`)**
+Tek araçta bu, lojistikte meşhur **Gezgin Satıcı Problemi**dir (TSP). Birden fazla araç ve kapasite sınırı eklenince **Kapasite Kısıtlı Araç Rotalama Problemi (CVRP)** olur:
+adresleri araçlara paylaştır, hiçbir aracın yükü kapasitesini aşmasın, **toplam km en az** olsun.
+15 adreste yalnızca sıralama ihtimali 15! ≈ **1,3 trilyon** olduğundan hepsini denemek pratik değildir.
+Google **OR-Tools** önce hızlı bir başlangıç çözümü kurar (*Path Cheapest Arc*: her adımda en ucuz bağlantıyı seç), sonra *Guided Local Search* ile bu çözümü birkaç saniye boyunca iyileştirir.
+Kapasite, OR-Tools'ta bir **boyut (dimension)** olarak tanımlanır: rota boyunca yük birikir ve her araçta kapasiteyi aşamaz.
 Küçük örneklerde sonucun, tüm olasılıkları deneyen kaba kuvvet yöntemiyle **aynı optimumu** bulduğu testlerle doğrulanmıştır.
 
+**Karşılaştırma ("girilen sıra") nasıl hesaplanır?** Elle planlamayı taklit eder: adresler yazıldığı sırayla araca yüklenir,
+sıradaki adres sığmıyorsa araç depoya döner ve yeni araç başlar. Optimize plan bununla km ve araç sayısı olarak kıyaslanır.
+
 **4. Sonuç (`app.py`, `rapor.py`)**
-- **folium** haritasında depo (kırmızı **D**) ve sıra numaralı duraklar, OSRM'den gelen gerçek yol çizgisi
-- Durak sırası tablosu: her bacağın km/dk değeri ve kümülatif toplamlar
-- Toplam km ve tahmini süre (sürüş + durak başı teslim süresi)
-- Girilen sıra ile optimize rotanın karşılaştırması
-- İki sayfalı (Özet + Durak Sırası) **Excel** indirme
+- **folium** haritasında depo (kırmızı **D**), her araç **ayrı renkte** rota çizgisi ve sıra numaralı duraklar
+- Araç tablosu: durak sayısı, yük (kg), **doluluk %**, km ve süre
+- Durak sırası tablosu: araç, teslim edilen ve araçta kalan yük, her bacağın km/dk değeri, kümülatif toplamlar
+- Özet kartları: toplam km, kullanılan araç, ortalama doluluk, en uzun tur süresi (sürüş + durak başı teslim süresi)
+- Girilen sıra ile optimize planın karşılaştırması
+- Üç sayfalı (Özet + Araçlar + Durak Sırası) **Excel** indirme
 
 ## 📁 Proje yapısı
 
@@ -60,9 +69,9 @@ Küçük örneklerde sonucun, tüm olasılıkları deneyen kaba kuvvet yöntemiy
 | `app.py` | Streamlit arayüzü; diğer modülleri sırayla çağırır |
 | `geocoding.py` | Adres → koordinat (Nominatim), hız sınırı, önbellek |
 | `mesafe.py` | OSRM mesafe/süre matrisi, rota çizgisi, çevrimdışı tahmin |
-| `optimizasyon.py` | OR-Tools ile en kısa tur, rota uzunluğu, tasarruf hesabı |
-| `rapor.py` | Durak tablosu ve Excel dosyası |
-| `ornek_veriler.py` | Hazır Samsun depo/adresleri ve yedek koordinatlar |
+| `optimizasyon.py` | OR-Tools ile kapasiteli araç rotaları (CVRP), girilen sıra planı, tasarruf hesabı |
+| `rapor.py` | Araç özeti, durak tablosu ve Excel dosyası |
+| `ornek_veriler.py` | Hazır Samsun depo/adresleri, talepler, araç ayarları ve yedek koordinatlar |
 | `tests/` | pytest testleri (ağ çağrıları taklit edilir, internetsiz çalışır) |
 
 ## 💻 Kurulum (kendi bilgisayarında)
@@ -96,7 +105,7 @@ pytest
 | [Streamlit](https://streamlit.io) | Web arayüzü |
 | [OpenStreetMap Nominatim](https://nominatim.org) | Adres → koordinat |
 | [OSRM](https://project-osrm.org) | Gerçek yol mesafesi, süre ve rota çizgisi |
-| [Google OR-Tools](https://developers.google.com/optimization) | Rota optimizasyonu (TSP) |
+| [Google OR-Tools](https://developers.google.com/optimization) | Rota optimizasyonu (TSP / CVRP) |
 | [folium](https://python-visualization.github.io/folium/) | Etkileşimli harita |
 | pandas + openpyxl | Tablo ve Excel çıktısı |
 
@@ -104,10 +113,10 @@ pytest
 
 - Nominatim ve OSRM'in **ücretsiz demo sunucuları** kullanılıyor; yoğun/ticari kullanım için kendi sunucunuzu kurmanız gerekir.
 - Süreler **serbest akış** trafiğine göredir; anlık trafik dahil değildir.
-- Tek araç vardır. OR-Tools'un desteklediği şu özellikler kolayca eklenebilir:
-  - **Araç kapasitesi** (CVRP — desi/kg sınırı)
+- Tüm araçlar aynı kapasitededir ve tek bir yük birimi (kg) kullanılır. OR-Tools'un desteklediği şu özellikler kolayca eklenebilir:
+  - **Farklı kapasiteli araçlar** (ör. kamyonet + kamyon) ve ikinci bir yük boyutu (desi/hacim)
   - **Zaman pencereleri** (VRPTW — "müşteri 10:00–12:00 arası")
-  - **Birden fazla araç** ve araç başı maksimum mesai süresi
+  - Araç başı **maksimum mesai süresi** ve araç kullanımına **sabit maliyet**
 - Adresler CSV/Excel'den toplu yüklenebilir.
 
 ## 🚀 Streamlit Community Cloud'a ücretsiz yayınlama

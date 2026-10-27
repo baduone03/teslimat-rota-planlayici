@@ -46,3 +46,47 @@ def test_girilen_sira_ve_tasarruf():
     assert optimizasyon.girilen_sira_rotasi(4) == [0, 1, 2, 3, 0]
     assert optimizasyon.tasarruf_yuzdesi(100, 75) == 25
     assert optimizasyon.tasarruf_yuzdesi(0, 0) == 0
+
+
+# --- Araç kapasitesi (CVRP) ---------------------------------------------------
+
+def _her_durak_bir_kez(rotalar, n):
+    duraklar = [d for rota in rotalar for d in rota[1:-1]]
+    return sorted(duraklar) == list(range(1, n))
+
+
+def test_kapasite_asilmaz_ve_her_durak_bir_kez_ziyaret_edilir():
+    noktalar = [(41.21, 36.46), (41.36, 36.22), (41.27, 36.36), (41.29, 36.33),
+                (41.32, 36.29), (41.26, 36.37), (41.28, 36.32), (41.33, 36.27)]
+    matris = tahmini_matris(noktalar)["mesafe_km"]
+    talepler = [0, 300, 250, 200, 350, 150, 100, 250]  # toplam 1600 kg
+    rotalar = optimizasyon.kapasiteli_rotalar(matris, talepler, kapasite=700, arac_sayisi=3, sure_limiti_sn=1)
+
+    assert rotalar is not None and len(rotalar) == 3  # 1600/700 → en az 3 araç
+    assert _her_durak_bir_kez(rotalar, len(noktalar))
+    for rota in rotalar:
+        assert rota[0] == 0 and rota[-1] == 0
+        assert sum(talepler[d] for d in rota) <= 700
+
+
+def test_depo_ortadaysa_her_arac_bir_tarafa_gider():
+    # Doğru üzerinde: depo 0 km'de; 1,2 solda (-1, -2 km), 3,4 sağda (+1, +2 km).
+    konumlar = [0, -1, -2, 1, 2]
+    matris = [[abs(a - b) for b in konumlar] for a in konumlar]
+    talepler = [0, 5, 5, 5, 5]
+    rotalar = optimizasyon.kapasiteli_rotalar(matris, talepler, kapasite=10, arac_sayisi=2, sure_limiti_sn=1)
+
+    taraflar = sorted(sorted(rota[1:-1]) for rota in rotalar)
+    assert taraflar == [[1, 2], [3, 4]]
+    assert optimizasyon.toplam_uzunluk(matris, rotalar) == 8
+
+
+def test_kapasite_yetmezse_none_doner():
+    matris = [[0, 1, 1], [1, 0, 1], [1, 1, 0]]
+    assert optimizasyon.kapasiteli_rotalar(matris, [0, 8, 8], kapasite=10, arac_sayisi=1, sure_limiti_sn=1) is None
+
+
+def test_girilen_sira_araclari_sirayla_doldurur():
+    assert optimizasyon.girilen_sira_rotalari([0, 5, 5, 5], kapasite=10) == [[0, 1, 2, 0], [0, 3, 0]]
+    assert optimizasyon.girilen_sira_rotalari([0, 5, 5, 5]) == [[0, 1, 2, 3, 0]]
+    assert optimizasyon.gereken_en_az_arac([0, 5, 5, 5], 10) == 2
