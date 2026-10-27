@@ -97,9 +97,18 @@ def test_koordinat_yazilirsa_servise_gidilmez():
         sonuc = geocoding.adres_koordinat("41.2867, 36.33")
     assert (sonuc["enlem"], sonuc["boylam"], sonuc["kaynak"]) == (41.2867, 36.33, "koordinat")
     assert not get.called
-    assert geocoding.koordinat_metni_coz("41.2867 36.33") == (41.2867, 36.33)
+    assert geocoding.koordinat_metni_coz("41.2867 36.33") == (41.2867, 36.33, "41.2867 36.33")
     assert geocoding.koordinat_metni_coz("Atakum, Samsun") is None
     assert geocoding.koordinat_metni_coz("95, 36") is None  # geçersiz enlem
+
+
+def test_isimli_koordinat_ismi_korur_ve_servise_gidilmez():
+    with mock.patch("geocoding.requests.get") as get:
+        sonuc = geocoding.adres_koordinat("Kurupelit, Atakum (41.3640, 36.2200)")
+    assert (sonuc["enlem"], sonuc["boylam"]) == (41.364, 36.22)
+    assert sonuc["bulunan_adres"] == "Kurupelit, Atakum"
+    assert not get.called
+    assert geocoding.koordinat_metni_coz("Depo (abc)") is None
 
 
 def test_ag_hatasinda_yedek_koordinat_kullanilir():

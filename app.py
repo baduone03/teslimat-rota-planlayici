@@ -162,7 +162,7 @@ with st.sidebar:
     servis_suresi = st.number_input("Durak başı teslim süresi (dk)", min_value=0, max_value=60, value=5)
     hesapla = st.button("Rotayı Hesapla", type="primary", width="stretch")
     st.caption("İpucu: Adresleri 'Mahalle, İlçe, İl' biçiminde yazın. Bulunamayan bir yer için adres yerine "
-               "'41.2867, 36.33' gibi enlem, boylam da yazabilirsiniz (Google Haritalar'da noktaya basılı tutun). "
+               "'41.2867, 36.33' veya 'Depo (41.2867, 36.33)' gibi enlem, boylam da yazabilirsiniz (Google Haritalar'da noktaya basılı tutun). "
                "Kapasite kısıtı istemiyorsanız talepleri 0 bırakın. Her adres ~1 sn sürer; aynı adres ikinci kez hızlı gelir.")
 
 if hesapla:

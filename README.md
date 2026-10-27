@@ -37,7 +37,7 @@ Adresler ──► 1. Geocoding ──► 2. Mesafe matrisi ──► 3. Optimiz
 **1. Adres → koordinat (`geocoding.py`)**
 "Körfez Mahallesi, Atakum, Samsun" gibi bir metni OpenStreetMap **Nominatim** servisiyle enlem/boylama çeviririz.
 Nominatim bulamazsa veya cevap vermezse aynı soru OSM tabanlı ikinci ücretsiz servis **Photon**'a (Türkiye sınırlarıyla) sorulur.
-Adres yerine doğrudan `41.2867, 36.33` gibi **koordinat** da yazılabilir; o zaman hiçbir servise gidilmez.
+Adres yerine doğrudan `41.2867, 36.33` gibi **koordinat** ya da okunur bir isimle `Kurupelit, Atakum (41.3640, 36.2200)` yazılabilir; o zaman hiçbir servise gidilmez.
 Servislerin kullanım kurallarına uyarız: her istekte uygulamayı tanıtan bir **User-Agent** gönderilir, **saniyede en fazla 1 istek** atılır,
 "yoğunum" (HTTP 429) cevabında 2 sn ve 4 sn bekleyip tekrar denenir ve sonuçlar **önbelleğe** (bellek + JSON dosyası) alınır; aynı adres ikinci kez sorulmaz.
 

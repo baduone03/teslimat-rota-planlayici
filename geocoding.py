@@ -3,8 +3,8 @@
 Ücretsiz ve API anahtarı istemeyen iki OpenStreetMap tabanlı servis kullanır:
   1. Nominatim (asıl servis)
   2. Photon (Nominatim bulamazsa veya cevap vermezse yedek)
-Kullanıcı adres yerine doğrudan "41.2867, 36.33" gibi koordinat da yazabilir;
-bu durumda hiçbir servise gidilmez.
+Kullanıcı adres yerine doğrudan "41.2867, 36.33" gibi koordinat da yazabilir, ya da okunur bir isimle
+"Kurupelit, Atakum (41.364, 36.22)"; bu durumda hiçbir servise gidilmez.
 
 Servislerin kullanım kurallarına uyarız:
   1. Her istekte bizi tanıtan bir User-Agent gönderilir.
@@ -29,8 +29,10 @@ TURKIYE_SINIRLARI = (25.6, 35.8, 44.9, 42.2)  # min boylam, min enlem, maks boyl
 
 ONBELLEK_DOSYASI = os.path.join(os.path.dirname(os.path.abspath(__file__)), "veri", "geocode_onbellek.json")
 
-# "41.2867, 36.33" veya "41.2867 36.33" (ondalık ayırıcı nokta)
-KOORDINAT_DESENI = re.compile(r"^\s*(-?\d{1,2}(?:\.\d+)?)\s*[,;\s]\s*(-?\d{1,3}(?:\.\d+)?)\s*$")
+# "41.2867, 36.33", "41.2867 36.33" veya "Kurupelit, Atakum (41.364, 36.22)" (ondalık ayırıcı nokta)
+_SAYI_CIFTI = r"(-?\d{1,2}(?:\.\d+)?)\s*[,;\s]\s*(-?\d{1,3}(?:\.\d+)?)"
+KOORDINAT_DESENI = re.compile(rf"^\s*{_SAYI_CIFTI}\s*$")
+ETIKETLI_KOORDINAT_DESENI = re.compile(rf"^\s*(.+?)\s*\(\s*{_SAYI_CIFTI}\s*\)\s*$")
 
 _onbellek = None  # {normalize_adres: {"enlem", "boylam", "bulunan_adres", "kaynak"} veya None}
 _son_istek_zamani = 0.0
@@ -84,13 +86,22 @@ def _istek(url, params, zaman_asimi):
 
 
 def koordinat_metni_coz(metin):
-    """'41.2867, 36.33' gibi bir metni (enlem, boylam) olarak döner; koordinat değilse None."""
+    """Metinde koordinat varsa (enlem, boylam, etiket) döner; yoksa None.
+
+    '41.2867, 36.33'                 → (41.2867, 36.33, '41.2867, 36.33')
+    'Kurupelit, Atakum (41.364, 36.22)' → (41.364, 36.22, 'Kurupelit, Atakum')
+    """
     eslesme = KOORDINAT_DESENI.match(metin)
-    if not eslesme:
-        return None
-    enlem, boylam = float(eslesme.group(1)), float(eslesme.group(2))
+    if eslesme:
+        etiket, enlem, boylam = metin.strip(), eslesme.group(1), eslesme.group(2)
+    else:
+        eslesme = ETIKETLI_KOORDINAT_DESENI.match(metin)
+        if not eslesme:
+            return None
+        etiket, enlem, boylam = eslesme.groups()
+    enlem, boylam = float(enlem), float(boylam)
     if -90 <= enlem <= 90 and -180 <= boylam <= 180:
-        return enlem, boylam
+        return enlem, boylam, etiket
     return None
 
 
@@ -125,7 +136,8 @@ def adres_koordinat(adres, zaman_asimi=10):
     """
     koordinat = koordinat_metni_coz(adres)
     if koordinat:
-        return {"enlem": koordinat[0], "boylam": koordinat[1], "bulunan_adres": adres, "kaynak": "koordinat"}
+        enlem, boylam, etiket = koordinat
+        return {"enlem": enlem, "boylam": boylam, "bulunan_adres": etiket, "kaynak": "koordinat"}
 
     anahtar = _normalize(adres)
     with _kilit:
