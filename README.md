@@ -24,17 +24,18 @@ Bu uygulama:
 - Sonucu haritada numaralı duraklarla, tabloda ve Excel dosyasında verir,
 - "Girilen sırayla gitseydin **X km**, optimize rota **Y km**, tasarruf **%Z**" karşılaştırmasıyla kazancı gösterir.
 
-**Samsun örneği** (uygulama açılışta bununla gelir): İlkadım Sanayi Sitesi deposundan 7 mahalleye toplam **1380 kg** teslimat, araç kapasitesi **800 kg**, durak başı 5 dk teslim süresi.
+**Samsun örneği** (uygulama açılışta bununla gelir): İlkadım Sanayi Sitesi deposundan Atakum, İlkadım ve Tekkeköy'deki 7 noktaya
+toplam **1380 kg** teslimat, araç kapasitesi **800 kg**, durak başı 5 dk teslim süresi. Tüm konumlar koordinatlıdır ve haritada doğrulanmıştır.
 Sonuçlar gerçek yol verisiyle (OSRM) hesaplandı:
 
 | | Elle planlama (girilen sıra) | Optimize plan |
 |---|---|---|
-| Toplam mesafe | 100,5 km | **46,3 km** |
+| Toplam mesafe | 123,6 km | **69,8 km** |
 | Araç sayısı | 3 | **2** |
 | Ortalama doluluk | %58 | **%86** |
-| Toplam araç süresi | 136,5 dk | **82,4 dk** |
 
-→ **%54 daha az km**, **1 araç daha az** ve yaklaşık **54 dakika** daha az araç süresi.
+→ **%43,5 daha az km** (53,8 km), **1 araç daha az** ve toplam araç süresinde yaklaşık **52 dakika** tasarruf.
+Optimize planda bir araç Atakum sahil hattını, diğeri Tekkeköy ile İlkadım'ı alır; en uzun tur 52 dakikadır.
 
 ## ⚙️ Nasıl çalışır? (adım adım mantık)
 
