@@ -265,4 +265,20 @@ st.download_button(
     data=rapor.excel_olustur(ozet, {"Araçlar": arac_tablosu, "Durak Sırası": durak_tablosu}),
     file_name="teslimat_rotasi.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    # Tıklayınca sayfa yeniden çalışmasın: yoksa dosya yeniden üretilir ve
+    # iPhone Safari eski bağlantıyı istediği için indirme "failed" olur.
+    on_click="ignore",
 )
+
+# --- Bulunan konumlar: "İsim (enlem, boylam)" biçiminde kopyalanabilir liste.
+# Bu satırlar adres tablosuna aynen yapıştırılabilir; o zaman konum servisine hiç gidilmez.
+with st.expander("📍 Bulunan konumlar (koordinatlı, kopyalanabilir)"):
+    satirlar = []
+    for i, n in enumerate(sonuc["noktalar"]):
+        isim = n["bulunan_adres"] if n["kaynak"] == "koordinat" else n["adres"]
+        if geocoding.koordinat_metni_coz(isim):  # yalnızca koordinat girilmişse okunur bir ad ver
+            isim = "Depo" if i == 0 else f"Durak {i}"
+        not_ = "   # yaklaşık konum, kontrol edin" if n["kaynak"] == "yedek" else ""
+        satirlar.append(f"{isim} ({n['enlem']:.6f}, {n['boylam']:.6f}){not_}")
+    st.caption("İlk satır depo. Sağ üstteki simgeyle kopyalayabilirsiniz.")
+    st.code("\n".join(satirlar), language=None)
