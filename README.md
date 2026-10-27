@@ -1,11 +1,12 @@
 # 🚚 Teslimat Rota Planlayıcı
 
 ![Testler](https://github.com/baduone03/teslimat-rota-planlayici/actions/workflows/testler.yml/badge.svg)
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://teslimat-rota-planlayici.streamlit.app)
 
 Bir depodan çıkıp **3–15 teslimat adresine** uğrayan ve depoya geri dönen **en kısa rotayı** hesaplayan web uygulaması.
 Python + Streamlit ile yazıldı; **tamamen ücretsiz** servisler kullanır, **API anahtarı gerekmez**.
 
-🔗 **Canlı demo:** _(yayınladıktan sonra linki buraya ekleyin)_
+🔗 **Canlı demo:** [teslimat-rota-planlayici.streamlit.app](https://teslimat-rota-planlayici.streamlit.app)
 
 ## 📸 Ekran görüntüsü
 
@@ -122,7 +123,7 @@ pytest
    - **App URL:** isterseniz `teslimat-rota-planlayici` gibi akılda kalıcı bir ad yazın
 5. **Advanced settings** → **Python version** olarak **3.12** veya **3.13** seçin.
 6. **Deploy** butonuna basın. İlk kurulum `requirements.txt`'teki paketleri yüklediği için birkaç dakika sürer.
-7. Uygulama açılınca örnek adreslerle **Rotayı Hesapla**'yı deneyin, linki kopyalayıp bu README'nin başındaki "Canlı demo" satırına ekleyin.
+7. Uygulama açılınca örnek adreslerle **Rotayı Hesapla**'yı deneyin ve linki README'ye ekleyin.
 
 **Notlar:**
 - `main` dalına her push yaptığınızda uygulama otomatik güncellenir.
