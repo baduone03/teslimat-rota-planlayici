@@ -31,7 +31,9 @@ ONBELLEK_DOSYASI = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ver
 
 # "41.2867, 36.33", "41.2867 36.33" veya "Kurupelit, Atakum (41.364, 36.22)" (ondalık ayırıcı nokta)
 _SAYI_CIFTI = r"(-?\d{1,2}(?:\.\d+)?)\s*[,;\s]\s*(-?\d{1,3}(?:\.\d+)?)"
-KOORDINAT_DESENI = re.compile(rf"^\s*{_SAYI_CIFTI}\s*$")
+KOORDINAT_DESENI = re.compile(rf"^\s*\(?\s*{_SAYI_CIFTI}\s*\)?\s*$")  # parantezli de olabilir
+# Telefondan kopyalanan metinlerde gelebilen görünmez yön işaretleri vb.
+GORUNMEZ_KARAKTERLER = re.compile("[\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]")
 ETIKETLI_KOORDINAT_DESENI = re.compile(rf"^\s*(.+?)\s*\(\s*{_SAYI_CIFTI}\s*\)\s*$")
 
 _onbellek = None  # {normalize_adres: {"enlem", "boylam", "bulunan_adres", "kaynak"} veya None}
@@ -91,9 +93,10 @@ def koordinat_metni_coz(metin):
     '41.2867, 36.33'                 → (41.2867, 36.33, '41.2867, 36.33')
     'Kurupelit, Atakum (41.364, 36.22)' → (41.364, 36.22, 'Kurupelit, Atakum')
     """
+    metin = GORUNMEZ_KARAKTERLER.sub("", metin).replace("\u00a0", " ")
     eslesme = KOORDINAT_DESENI.match(metin)
     if eslesme:
-        etiket, enlem, boylam = metin.strip(), eslesme.group(1), eslesme.group(2)
+        etiket, enlem, boylam = f"{eslesme.group(1)}, {eslesme.group(2)}", eslesme.group(1), eslesme.group(2)
     else:
         eslesme = ETIKETLI_KOORDINAT_DESENI.match(metin)
         if not eslesme:

@@ -97,7 +97,10 @@ def test_koordinat_yazilirsa_servise_gidilmez():
         sonuc = geocoding.adres_koordinat("41.2867, 36.33")
     assert (sonuc["enlem"], sonuc["boylam"], sonuc["kaynak"]) == (41.2867, 36.33, "koordinat")
     assert not get.called
-    assert geocoding.koordinat_metni_coz("41.2867 36.33") == (41.2867, 36.33, "41.2867 36.33")
+    assert geocoding.koordinat_metni_coz("41.2867 36.33") == (41.2867, 36.33, "41.2867, 36.33")
+    # Parantezli ve telefondan görünmez karakterle kopyalanmış hâller de tanınmalı
+    assert geocoding.koordinat_metni_coz("(41.2767769, 36.3540910)")[:2] == (41.2767769, 36.354091)
+    assert geocoding.koordinat_metni_coz("\u202a41.2767769,36.3540910\u202c")[:2] == (41.2767769, 36.354091)
     assert geocoding.koordinat_metni_coz("Atakum, Samsun") is None
     assert geocoding.koordinat_metni_coz("95, 36") is None  # geçersiz enlem
 

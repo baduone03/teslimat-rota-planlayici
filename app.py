@@ -45,7 +45,8 @@ def rotayi_hesapla(depo, adresler, talepler, kapasite, arac_sayisi, servis_sures
         nokta["talep"] = talep
 
     if noktalar[0]["kaynak"] == "bulunamadi":
-        st.error(f"Depo adresi bulunamadı: **{depo}**. Lütfen daha açık yazın (ör. 'Mahalle, İlçe, İl').")
+        st.error(f"Depo adresi bulunamadı: **{depo}**. Lütfen daha açık yazın (ör. 'Mahalle, İlçe, İl') "
+                 "veya koordinat girin (ör. '41.2867, 36.33').")
         return None
     bulunamayanlar = [n["adres"] for n in noktalar if n["kaynak"] == "bulunamadi"]
     noktalar = [n for n in noktalar if n["kaynak"] != "bulunamadi"]
