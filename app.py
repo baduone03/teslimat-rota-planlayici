@@ -5,12 +5,12 @@ Akış: Adresler → (geocoding) koordinatlar → (mesafe) mesafe matrisi
 Çalıştırma: streamlit run app.py
 """
 
-import folium
 import pandas as pd
 import streamlit as st
 from streamlit_folium import st_folium
 
 import geocoding
+import harita
 import mesafe
 import optimizasyon
 import rapor
@@ -19,8 +19,6 @@ from ornek_veriler import (ORNEK_ADRESLER, ORNEK_ARAC_SAYISI, ORNEK_DEPO, ORNEK_
 
 MIN_ADRES, MAX_ADRES = 3, 15
 MAX_ARAC = 5
-DEPO_RENGI = "#d1242f"
-ARAC_RENKLERI = ["#1f6feb", "#2da44e", "#bf8700", "#8250df", "#0a7f8c"]  # depo kırmızısından farklı
 
 st.set_page_config(page_title="Teslimat Rota Planlayıcı", page_icon="🚚", layout="wide")
 
@@ -92,6 +90,7 @@ def rotayi_hesapla(depo, adresler, talepler, kapasite, arac_sayisi, servis_sures
         "girilen": ozet(girilen_rotalar),
         "cizgiler": cizgiler,
         "bulunamayanlar": bulunamayanlar,
+        "supheli_konumlar": supheli_konumlar(noktalar),
         "kapasite": kapasite,
         "araci_azalt": araci_azalt,
         "arac_sayisi": arac_sayisi,
@@ -99,46 +98,24 @@ def rotayi_hesapla(depo, adresler, talepler, kapasite, arac_sayisi, servis_sures
     }
 
 
+def supheli_konumlar(noktalar):
+    """Türkiye dışına ya da diğer noktalardan çok uzağa düşen konumlar için uyarı metinleri."""
+    uyarilar = {}
+    for s in mesafe.supheli_uzak_noktalar([(n["enlem"], n["boylam"]) for n in noktalar]):
+        metin = f"diğer noktalara ~{s['km']:.0f} km uzakta"
+        if s["ters_olabilir"]:
+            metin += " — **enlem ile boylam ters yazılmış olabilir**"
+        uyarilar[s["index"]] = metin
+    for i, n in enumerate(noktalar):
+        if not geocoding.turkiye_icinde(n["enlem"], n["boylam"]):
+            uyarilar[i] = "Türkiye sınırları dışında" + (f"; {uyarilar[i]}" if i in uyarilar else "")
+    return [f"{'DEPO: ' if i == 0 else ''}{noktalar[i]['adres']} ({noktalar[i]['enlem']:.4f}, "
+            f"{noktalar[i]['boylam']:.4f}) → {metin}" for i, metin in sorted(uyarilar.items())]
+
+
 def sure_metni(dakika):
     saat, dk = divmod(round(dakika), 60)
     return f"{saat} sa {dk} dk" if saat else f"{dk} dk"
-
-
-def _daire_ikon(etiket, renk):
-    return folium.DivIcon(
-        icon_size=(30, 30), icon_anchor=(15, 15),
-        html=f'<div style="background:{renk};color:#fff;border:2px solid #fff;border-radius:50%;'
-             f'width:30px;height:30px;display:flex;align-items:center;justify-content:center;'
-             f'font-weight:700;font-size:13px;box-shadow:0 1px 4px rgba(0,0,0,.4)">{etiket}</div>',
-    )
-
-
-def harita_olustur(sonuc):
-    noktalar = sonuc["noktalar"]
-    depo = noktalar[0]
-    harita = folium.Map(location=[depo["enlem"], depo["boylam"]], zoom_start=12)
-
-    # Her araç kendi renginde: rota çizgisi + ziyaret sırasına göre numaralı duraklar.
-    for arac_no, (rota, cizgi) in enumerate(zip(sonuc["optimize_rotalar"], sonuc["cizgiler"]), start=1):
-        renk = ARAC_RENKLERI[(arac_no - 1) % len(ARAC_RENKLERI)]
-        folium.PolyLine(cizgi, color=renk, weight=5, opacity=0.8, tooltip=f"Araç {arac_no}").add_to(harita)
-        for sira, dugum in enumerate(rota[1:-1], start=1):
-            nokta = noktalar[dugum]
-            baslik = f"Araç {arac_no} · {sira}. durak"
-            folium.Marker(
-                [nokta["enlem"], nokta["boylam"]], icon=_daire_ikon(sira, renk),
-                tooltip=f"{baslik}: {nokta['adres']} ({nokta['talep']} kg)",
-                popup=folium.Popup(f"<b>{baslik}</b><br>{nokta['bulunan_adres']}<br>Teslim: {nokta['talep']} kg",
-                                   max_width=300),
-            ).add_to(harita)
-
-    folium.Marker(
-        [depo["enlem"], depo["boylam"]], icon=_daire_ikon("D", DEPO_RENGI),
-        tooltip=f"DEPO: {depo['adres']}", popup=folium.Popup(f"<b>DEPO</b><br>{depo['bulunan_adres']}", max_width=300),
-    ).add_to(harita)
-
-    harita.fit_bounds([[n["enlem"], n["boylam"]] for n in noktalar], padding=(30, 30))
-    return harita
 
 
 # ---------------------------------------------------------------------------
@@ -175,11 +152,15 @@ with st.sidebar:
                "'41.2867, 36.33' veya 'Depo (41.2867, 36.33)' gibi enlem, boylam da yazabilirsiniz (Google Haritalar'da noktaya basılı tutun). "
                "Kapasite kısıtı istemiyorsanız talepleri 0 bırakın. Her adres ~1 sn sürer; aynı adres ikinci kez hızlı gelir.")
 
+satirlar = adres_tablosu.dropna(subset=["Adres"])
+satirlar = satirlar[satirlar["Adres"].astype(str).str.strip() != ""]
+adresler = satirlar["Adres"].astype(str).str.strip().tolist()
+talepler = satirlar["Talep (kg)"].fillna(0).astype(int).tolist()
+# Ekrandaki sonucun hangi girdilerle hesaplandığını anlamak için girdilerin "imzası"
+girdi_imzasi = (depo.strip(), tuple(adresler), tuple(talepler), int(kapasite), int(arac_sayisi),
+                int(servis_suresi), bool(araci_azalt))
+
 if hesapla:
-    satirlar = adres_tablosu.dropna(subset=["Adres"])
-    satirlar = satirlar[satirlar["Adres"].astype(str).str.strip() != ""]
-    adresler = satirlar["Adres"].astype(str).str.strip().tolist()
-    talepler = satirlar["Talep (kg)"].fillna(0).astype(int).tolist()
     en_az_arac = optimizasyon.gereken_en_az_arac(talepler, kapasite)
     asiri = [a for a, t in zip(adresler, talepler) if t > kapasite]
 
@@ -197,6 +178,8 @@ if hesapla:
         st.session_state["sonuc"] = rotayi_hesapla(
             depo.strip(), adresler, talepler, int(kapasite), int(arac_sayisi), servis_suresi, araci_azalt,
         )
+        if st.session_state["sonuc"]:
+            st.session_state["sonuc"]["girdi_imzasi"] = girdi_imzasi
 
 sonuc = st.session_state.get("sonuc")
 if not sonuc:
@@ -205,9 +188,15 @@ if not sonuc:
     st.stop()
 
 # --- Uyarılar
+if sonuc.get("girdi_imzasi") != girdi_imzasi:
+    st.warning("✏️ Girdileri değiştirdiniz; aşağıdaki sonuç **önceki girdilere** ait. "
+               "Güncellemek için **Rotayı Hesapla**'ya basın.")
 if sonuc["bulunamayanlar"]:
     st.warning("Bulunamadığı için rotaya eklenmeyen adresler: " + ", ".join(sonuc["bulunamayanlar"]) +
                ". Daha açık yazmayı (ör. 'Mahalle, İlçe, İl') veya koordinat girmeyi deneyin.")
+if sonuc.get("supheli_konumlar"):
+    st.warning("📍 **Bu konumlar yanlış olabilir, kontrol edin:**\n\n- " + "\n- ".join(sonuc["supheli_konumlar"]) +
+               "\n\nHaritada işarete dokunarak bulunan yeri görebilirsiniz.")
 if sonuc["matris"]["kaynak"] == "tahmini":
     st.warning("Yol mesafesi servisine (OSRM) ulaşılamadı; mesafeler kuş uçuşu × "
                f"{mesafe.YOL_KATSAYISI} ile **tahmini** hesaplandı.")
@@ -234,8 +223,8 @@ k4.metric("En uzun tur", sure_metni(arac_tablosu["Süre (dk)"].max()),
 # --- Karşılaştırma kutusu
 tasarruf = optimizasyon.tasarruf_yuzdesi(gir_km, opt_km)
 st.success(
-    f"📊 **Girilen sırayla gitseydin {gir_km:.1f} km** ({gir_arac} araç, adresler sırayla yüklenip araç dolunca "
-    f"yenisine geçilerek), **optimize plan {opt_km:.1f} km** ({opt_arac} araç) → **tasarruf %{tasarruf:.1f}** "
+    f"📊 **Girilen sırayla gitseydin {gir_km:.1f} km** ({gir_arac} sefer: adresler sırayla yüklenir, araç dolunca "
+    f"depoya dönülür), **optimize plan {opt_km:.1f} km** ({opt_arac} araç) → **tasarruf %{tasarruf:.1f}** "
     f"({gir_km - opt_km:.1f} km, toplam araç süresinde yaklaşık {sure_metni(max(gir_dk - opt_dk, 0))} daha az)."
 )
 
@@ -243,7 +232,7 @@ st.success(
 sol, sag = st.columns([3, 2])
 with sol:
     st.subheader("🗺️ Rota haritası")
-    st_folium(harita_olustur(sonuc), height=520, use_container_width=True, returned_objects=[])
+    st_folium(harita.harita_olustur(sonuc), height=520, use_container_width=True, returned_objects=[])
 with sag:
     st.subheader("🚛 Araçlar")
     st.dataframe(arac_tablosu, hide_index=True, width="stretch")
@@ -261,7 +250,7 @@ ozet = {
     "Optimize plan (km)": round(opt_km, 2),
     "Optimize plan toplam araç süresi (dk)": round(opt_dk, 1),
     "Girilen sıra (km)": round(gir_km, 2),
-    "Girilen sıra araç sayısı": gir_arac,
+    "Girilen sıra sefer sayısı": gir_arac,
     "Girilen sıra toplam araç süresi (dk)": round(gir_dk, 1),
     "Tasarruf (%)": round(tasarruf, 1),
     "Durak başı teslim süresi (dk)": sonuc["servis_suresi_dk"],

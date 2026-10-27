@@ -29,12 +29,14 @@ TURKIYE_SINIRLARI = (25.6, 35.8, 44.9, 42.2)  # min boylam, min enlem, maks boyl
 
 ONBELLEK_DOSYASI = os.path.join(os.path.dirname(os.path.abspath(__file__)), "veri", "geocode_onbellek.json")
 
-# "41.2867, 36.33", "41.2867 36.33" veya "Kurupelit, Atakum (41.364, 36.22)" (ondalık ayırıcı nokta)
-_SAYI_CIFTI = r"(-?\d{1,2}(?:\.\d+)?)\s*[,;\s]\s*(-?\d{1,3}(?:\.\d+)?)"
-KOORDINAT_DESENI = re.compile(rf"^\s*\(?\s*{_SAYI_CIFTI}\s*\)?\s*$")  # parantezli de olabilir
+# Desteklenen koordinat biçimleri (tek başına ya da "İsim (koordinat)" olarak):
+#   41.2867, 36.33  |  41.2867 36.33  |  41,2867, 36,33 (virgüllü ondalık)  |  41°21'36.3"N 36°14'00.5"E
+_NOKTALI_CIFT = re.compile(r"(-?\d{1,2}(?:\.\d+)?)\s*[,;\s]\s*(-?\d{1,3}(?:\.\d+)?)")
+_VIRGULLU_CIFT = re.compile(r"(-?\d{1,2},\d+)\s*[;\s]\s*(-?\d{1,3},\d+)|(-?\d{1,2},\d+)\s*,\s+(-?\d{1,3},\d+)")
+_DMS = r"(\d{1,3})\s*°\s*(?:(\d{1,2}(?:[.,]\d+)?)\s*['′’]\s*)?(?:(\d{1,2}(?:[.,]\d+)?)\s*(?:\"|″|”|'')\s*)?"
+_DMS_CIFT = re.compile(rf"{_DMS}([NSKG])\s*,?\s*{_DMS}([EWDB])", re.IGNORECASE)
 # Telefondan kopyalanan metinlerde gelebilen görünmez yön işaretleri vb.
 GORUNMEZ_KARAKTERLER = re.compile("[\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]")
-ETIKETLI_KOORDINAT_DESENI = re.compile(rf"^\s*(.+?)\s*\(\s*{_SAYI_CIFTI}\s*\)\s*$")
 
 _onbellek = None  # {normalize_adres: {"enlem", "boylam", "bulunan_adres", "kaynak"} veya None}
 _son_istek_zamani = 0.0
@@ -87,25 +89,53 @@ def _istek(url, params, zaman_asimi):
         return yanit.json()
 
 
+def _derece(d, dk, sn, yon):
+    deger = float(d) + float((dk or "0").replace(",", ".")) / 60 + float((sn or "0").replace(",", ".")) / 3600
+    return -deger if yon.upper() in "SGWB" else deger  # güney/batı negatif
+
+
+def _cift_coz(metin):
+    """Yalnızca koordinattan oluşan bir metni (enlem, boylam) olarak döner; değilse None."""
+    metin = metin.strip()
+    if metin.startswith("(") and metin.endswith(")"):
+        metin = metin[1:-1].strip()
+    if m := _NOKTALI_CIFT.fullmatch(metin):
+        return float(m.group(1)), float(m.group(2))
+    if m := _VIRGULLU_CIFT.fullmatch(metin):
+        enlem, boylam = (g for g in m.groups() if g)
+        return float(enlem.replace(",", ".")), float(boylam.replace(",", "."))
+    if m := _DMS_CIFT.fullmatch(metin):
+        g = m.groups()
+        return _derece(*g[0:4]), _derece(*g[4:8])
+    return None
+
+
 def koordinat_metni_coz(metin):
     """Metinde koordinat varsa (enlem, boylam, etiket) döner; yoksa None.
 
-    '41.2867, 36.33'                 → (41.2867, 36.33, '41.2867, 36.33')
+    '41.2867, 36.33'                    → (41.2867, 36.33, '41.2867, 36.33')
     'Kurupelit, Atakum (41.364, 36.22)' → (41.364, 36.22, 'Kurupelit, Atakum')
+    Virgüllü ondalık ve dereceli (41°21'36.3"N 36°14'00.5"E) biçimler de tanınır.
     """
-    metin = GORUNMEZ_KARAKTERLER.sub("", metin).replace("\u00a0", " ")
-    eslesme = KOORDINAT_DESENI.match(metin)
-    if eslesme:
-        etiket, enlem, boylam = f"{eslesme.group(1)}, {eslesme.group(2)}", eslesme.group(1), eslesme.group(2)
-    else:
-        eslesme = ETIKETLI_KOORDINAT_DESENI.match(metin)
-        if not eslesme:
-            return None
-        etiket, enlem, boylam = eslesme.groups()
-    enlem, boylam = float(enlem), float(boylam)
-    if -90 <= enlem <= 90 and -180 <= boylam <= 180:
-        return enlem, boylam, etiket
-    return None
+    metin = GORUNMEZ_KARAKTERLER.sub("", metin).replace("\u00a0", " ").strip()
+    cift, etiket = _cift_coz(metin), None
+    if cift is None and metin.endswith(")") and "(" in metin:
+        acilis = metin.rindex("(")
+        etiket = metin[:acilis].strip()
+        cift = _cift_coz(metin[acilis + 1:-1]) if etiket else None
+    if cift is None:
+        return None
+    enlem, boylam = cift
+    if not (-90 <= enlem <= 90 and -180 <= boylam <= 180):
+        return None
+    return enlem, boylam, etiket or f"{enlem:.6f}, {boylam:.6f}"
+
+
+def turkiye_icinde(enlem, boylam):
+    """Kaba kontrol: nokta Türkiye'yi çevreleyen dikdörtgenin içinde mi?
+    (Komşu ülkelerin bir kısmı da içeride kalır; ters yazımları ayrıca uzaklık kontrolü yakalar.)"""
+    min_boylam, min_enlem, maks_boylam, maks_enlem = TURKIYE_SINIRLARI
+    return min_enlem <= enlem <= maks_enlem and min_boylam <= boylam <= maks_boylam
 
 
 def _nominatim(adres, zaman_asimi):

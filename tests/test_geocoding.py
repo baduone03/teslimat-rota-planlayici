@@ -97,7 +97,7 @@ def test_koordinat_yazilirsa_servise_gidilmez():
         sonuc = geocoding.adres_koordinat("41.2867, 36.33")
     assert (sonuc["enlem"], sonuc["boylam"], sonuc["kaynak"]) == (41.2867, 36.33, "koordinat")
     assert not get.called
-    assert geocoding.koordinat_metni_coz("41.2867 36.33") == (41.2867, 36.33, "41.2867, 36.33")
+    assert geocoding.koordinat_metni_coz("41.2867 36.33") == (41.2867, 36.33, "41.286700, 36.330000")
     # Parantezli ve telefondan görünmez karakterle kopyalanmış hâller de tanınmalı
     assert geocoding.koordinat_metni_coz("(41.2767769, 36.3540910)")[:2] == (41.2767769, 36.354091)
     assert geocoding.koordinat_metni_coz("\u202a41.2767769,36.3540910\u202c")[:2] == (41.2767769, 36.354091)
@@ -120,3 +120,25 @@ def test_ag_hatasinda_adres_bulunamadi_olarak_isaretlenir():
     assert sonuclar[0]["kaynak"] == "bulunamadi"
     # Koordinatlı giriş ağ olmasa da çalışır
     assert (sonuclar[1]["kaynak"], sonuclar[1]["enlem"]) == ("koordinat", 41.0)
+
+
+@pytest.mark.parametrize("metin", [
+    "41,2767769, 36,3540910",          # virgüllü ondalık
+    "41,2767769 36,3540910",
+    "41°16'36.4\"N 36°21'14.7\"E",    # Google Haritalar'ın dereceli biçimi
+    "41°16′36.4″N, 36°21′14.7″E",
+    "Depo (41°16'36.4\"N 36°21'14.7\"E)",
+])
+def test_virgullu_ve_dereceli_koordinatlar_taninir(metin):
+    enlem, boylam, _ = geocoding.koordinat_metni_coz(metin)
+    assert enlem == pytest.approx(41.27678, abs=1e-4)
+    assert boylam == pytest.approx(36.35409, abs=1e-4)
+
+
+def test_belirsiz_virgullu_metin_koordinat_sayilmaz():
+    assert geocoding.koordinat_metni_coz("41,2, 36") is None
+
+
+def test_turkiye_kaba_siniri():
+    assert geocoding.turkiye_icinde(41.28, 36.35)       # Samsun
+    assert not geocoding.turkiye_icinde(48.85, 2.35)    # Paris

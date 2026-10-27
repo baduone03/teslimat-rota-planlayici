@@ -42,3 +42,25 @@ def test_rota_geometrisi_hata_durumunda_duz_cizgi():
     noktalar = [(41.0, 36.0), (41.1, 36.1), (41.0, 36.0)]
     with mock.patch("mesafe.requests.get", side_effect=requests.Timeout):
         assert mesafe.rota_geometrisi(noktalar) == noktalar
+
+
+SAMSUN = [(41.2768, 36.3541), (41.3615, 36.2339), (41.2263, 36.4526), (41.2950, 36.3314), (41.2656, 36.3373)]
+
+
+def test_ters_yazilmis_koordinat_yakalanir():
+    noktalar = SAMSUN + [(36.3314, 41.2950)]  # enlem ve boylam yer değiştirmiş (Suriye-Irak sınırı)
+    supheliler = mesafe.supheli_uzak_noktalar(noktalar)
+    assert [s["index"] for s in supheliler] == [5]
+    assert supheliler[0]["ters_olabilir"] is True
+    assert supheliler[0]["km"] > 500
+
+
+def test_baska_sehre_dusen_adres_yakalanir_ama_ters_denmez():
+    noktalar = SAMSUN + [(39.93, 32.85)]  # Ankara
+    supheliler = mesafe.supheli_uzak_noktalar(noktalar)
+    assert [s["index"] for s in supheliler] == [5]
+    assert supheliler[0]["ters_olabilir"] is False
+
+
+def test_normal_sehir_ici_noktalarda_uyari_yok():
+    assert mesafe.supheli_uzak_noktalar(SAMSUN) == []

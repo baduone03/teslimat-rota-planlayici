@@ -31,10 +31,10 @@ Sonuçlar gerçek yol verisiyle (OSRM) hesaplandı:
 | | Elle planlama (girilen sıra) | Optimize plan |
 |---|---|---|
 | Toplam mesafe | 123,6 km | **69,8 km** |
-| Araç sayısı | 3 | **2** |
+| Sefer / araç sayısı | 3 sefer | **2 araç** |
 | Ortalama doluluk | %58 | **%86** |
 
-→ **%43,5 daha az km** (53,8 km), **1 araç daha az** ve toplam araç süresinde yaklaşık **52 dakika** tasarruf.
+→ **%43,5 daha az km** (53,8 km), **1 sefer (araç) daha az** ve toplam araç süresinde yaklaşık **52 dakika** tasarruf.
 Optimize planda bir araç Atakum sahil hattını, diğeri Tekkeköy ile İlkadım'ı alır; en uzun tur 52 dakikadır.
 
 ## ⚙️ Nasıl çalışır? (adım adım mantık)
@@ -47,7 +47,11 @@ Adresler ──► 1. Geocoding ──► 2. Mesafe matrisi ──► 3. Optimiz
 **1. Adres → koordinat (`geocoding.py`)**
 "Körfez Mahallesi, Atakum, Samsun" gibi bir metni OpenStreetMap **Nominatim** servisiyle enlem/boylama çeviririz.
 Nominatim bulamazsa veya cevap vermezse aynı soru OSM tabanlı ikinci ücretsiz servis **Photon**'a (Türkiye sınırlarıyla) sorulur.
-Adres yerine doğrudan `41.2867, 36.33` gibi **koordinat** ya da okunur bir isimle `Kurupelit, Atakum (41.3640, 36.2200)` yazılabilir; o zaman hiçbir servise gidilmez.
+Adres yerine doğrudan **koordinat** ya da okunur bir isimle `Kurupelit, Atakum (41.3640, 36.2200)` yazılabilir; o zaman hiçbir servise gidilmez.
+Tanınan biçimler: `41.2867, 36.33` · `(41.2867, 36.33)` · `41,2867, 36,33` (virgüllü ondalık) · `41°17'12.1"N 36°19'48.0"E` (Google Haritalar'ın dereceli biçimi).
+
+**Yanlış konum kontrolü:** Bir nokta Türkiye sınırları dışına ya da diğer noktalardan 150 km'den uzağa düşerse uygulama uyarır
+(ör. belirsiz bir adres başka bir ilde bulunduğunda). Enlem ile boylam ters yazılmış gibi görünüyorsa bunu da ayrıca belirtir.
 Servislerin kullanım kurallarına uyarız: her istekte uygulamayı tanıtan bir **User-Agent** gönderilir, **saniyede en fazla 1 istek** atılır,
 "yoğunum" (HTTP 429) cevabında 2 sn ve 4 sn bekleyip tekrar denenir ve sonuçlar **önbelleğe** (bellek + JSON dosyası) alınır; aynı adres ikinci kez sorulmaz.
 
@@ -82,13 +86,14 @@ sıradaki adres sığmıyorsa araç depoya döner ve yeni araç başlar. Optimiz
 
 | Dosya | Görevi |
 |---|---|
-| `app.py` | Streamlit arayüzü; diğer modülleri sırayla çağırır |
+| `app.py` | Streamlit arayüzü; diğer modülleri sırayla çağırır, girdi ve konum uyarılarını gösterir |
+| `harita.py` | folium haritası (araç başına renkli rota, numaralı duraklar; metinler HTML kaçışıyla güvenli) |
 | `geocoding.py` | Adres → koordinat (Nominatim, yedek Photon), hız sınırı, tekrar deneme, önbellek |
 | `mesafe.py` | OSRM mesafe/süre matrisi, rota çizgisi, çevrimdışı tahmin |
 | `optimizasyon.py` | OR-Tools ile kapasiteli araç rotaları (CVRP), girilen sıra planı, tasarruf hesabı |
 | `rapor.py` | Araç özeti, durak tablosu ve Excel dosyası |
 | `ornek_veriler.py` | Hazır Samsun depo/adresleri, talepler, araç ayarları ve yedek koordinatlar |
-| `tests/` | pytest testleri (ağ çağrıları taklit edilir, internetsiz çalışır) |
+| `tests/` | pytest birim testleri + Streamlit AppTest ile uçtan uca arayüz testleri (ağ çağrıları taklit edilir, internetsiz çalışır) |
 
 ## 💻 Kurulum (kendi bilgisayarında)
 

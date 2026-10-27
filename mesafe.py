@@ -29,6 +29,31 @@ def haversine_km(nokta1, nokta2):
     return 2 * 6371.0 * math.asin(math.sqrt(a))
 
 
+def supheli_uzak_noktalar(noktalar, esik_km=150):
+    """Diğerlerinden çok uzak düşen noktaları bulur (yanlış şehir, ters yazılmış koordinat vb.).
+
+    Merkez olarak enlem ve boylamların ortancası (medyan) alınır; tek bir hatalı nokta merkezi kaydırmasın diye.
+    Dönüş: [{"index": i, "km": merkeze uzaklık, "ters_olabilir": bool}, ...]
+    "ters_olabilir": enlem ve boylam yer değiştirince nokta merkeze yakın düşüyorsa True.
+    """
+    if len(noktalar) < 3:
+        return []
+
+    def ortanca(degerler):
+        sirali = sorted(degerler)
+        orta = len(sirali) // 2
+        return sirali[orta] if len(sirali) % 2 else (sirali[orta - 1] + sirali[orta]) / 2
+
+    merkez = (ortanca([n[0] for n in noktalar]), ortanca([n[1] for n in noktalar]))
+    supheliler = []
+    for i, (enlem, boylam) in enumerate(noktalar):
+        km = haversine_km((enlem, boylam), merkez)
+        if km > esik_km:
+            ters_km = haversine_km((boylam, enlem), merkez) if abs(boylam) <= 90 else float("inf")
+            supheliler.append({"index": i, "km": km, "ters_olabilir": ters_km <= esik_km})
+    return supheliler
+
+
 def _osrm_koordinat_metni(noktalar):
     # Dikkat: OSRM "boylam,enlem" sırası ister (enlem,boylam değil!).
     return ";".join(f"{boylam:.6f},{enlem:.6f}" for enlem, boylam in noktalar)
