@@ -10,7 +10,6 @@ Python + Streamlit ile yazıldı; **tamamen ücretsiz** servisler kullanır, **A
 
 ## 📸 Ekran görüntüsü
 
-<!-- Uygulamayı çalıştırıp ekran görüntüsü alın, docs/ekran-goruntusu.png olarak kaydedin. -->
 ![Uygulama ekran görüntüsü](docs/ekran-goruntusu.png)
 
 ## 🎯 Ne işe yarar?
@@ -24,7 +23,7 @@ Bu uygulama:
 - Sonucu haritada numaralı duraklarla, tabloda ve Excel dosyasında verir,
 - "Girilen sırayla gitseydin **X km**, optimize rota **Y km**, tasarruf **%Z**" karşılaştırmasıyla kazancı gösterir.
 
-Samsun örneğinde (Tekkeköy deposu, 8 mahalle) optimize rota, adresleri yazıldığı sırayla gezmeye göre yaklaşık **%40+ daha kısa** çıkar.
+Samsun örneğinde (Tekkeköy deposu, 8 mahalle) adresleri yazıldığı sırayla gezmek **126,0 km**, optimize rota ise **63,8 km**: **%49,4 tasarruf** (yaklaşık 1 saat daha az yol).
 
 ## ⚙️ Nasıl çalışır? (adım adım mantık)
 
