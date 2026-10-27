@@ -28,18 +28,19 @@ Bu uygulama:
 
 **Samsun örneği** (uygulama açılışta bununla gelir): İlkadım Sanayi Sitesi deposundan Atakum, İlkadım ve Tekkeköy'deki 7 noktaya
 toplam **1380 kg** teslimat, durak başı 5 dk teslim süresi. Tüm konumlar koordinatlıdır ve haritada doğrulanmıştır.
-Açılıştaki filo karışıktır: **1 × Kamyon (1000 kg) + 2 × Kamyonet (600 kg)**.
-
-Aşağıdaki sonuçlar **tek tip filo** (3 × 800 kg) ile, gerçek yol verisiyle (OSRM) hesaplandı:
+Açılıştaki filo karışıktır: **1 × Kamyon (1000 kg) + 2 × Kamyonet (600 kg)**. Sonuçlar gerçek yol verisiyle (OSRM) hesaplandı:
 
 | | Elle planlama (girilen sıra) | Optimize plan |
 |---|---|---|
-| Toplam mesafe | 123,6 km | **69,8 km** |
-| Sefer / araç sayısı | 3 sefer | **2 araç** |
-| Ortalama doluluk | %58 | **%86** |
+| Toplam mesafe | 117,6 km | **65,3 km** |
+| Kullanılan araç | 2 sefer (Kamyon + Kamyonet) | **2 araç** (Kamyon + Kamyonet 1) |
+| Doluluk | Kamyon %100, Kamyonet %63 | **Kamyon %97**, Kamyonet %68 |
 
-→ **%43,5 daha az km** (53,8 km), **1 sefer (araç) daha az** ve toplam araç süresinde yaklaşık **52 dakika** tasarruf.
-Optimize planda bir araç Atakum sahil hattını, diğeri Tekkeköy ile İlkadım'ı alır; en uzun tur 52 dakikadır.
+→ **%44,5 daha az km** (52,3 km) ve toplam araç süresinde yaklaşık **50 dakika** tasarruf; en uzun tur 1 sa 6 dk.
+Kamyon Atakum sahil hattı ile İlkadım'daki 5 durağı, kamyonet Tekkeköy ve Kılıçdede'yi alır; ikinci kamyonet depoda kalır.
+Yükleme planı (LIFO): kamyona ilk olarak son teslim edilecek Pazar Mahallesi'nin yükü konur, ilk teslim edilecek Derebahçe'nin yükü kapının önüne gelir.
+
+Aynı adreslerin **tek tip filo** (3 × 800 kg) ile sonucu: elle planlama 123,6 km / 3 sefer, optimize plan **69,8 km / 2 araç** (%43,5 tasarruf).
 
 ## ⚙️ Nasıl çalışır? (adım adım mantık)
 
