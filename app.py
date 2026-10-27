@@ -160,6 +160,11 @@ with st.sidebar:
              "bu durumda yarı boş bir araç yakındaki tek bir durağa gönderilebilir.",
     )
     servis_suresi = st.number_input("Durak başı teslim süresi (dk)", min_value=0, max_value=60, value=5)
+    yukleme_yontemi = st.radio(
+        "Yükleme yöntemi", list(rapor.YUKLEME_YONTEMLERI), horizontal=True,
+        help="LIFO: " + rapor.YUKLEME_YONTEMLERI["LIFO"] + ".  FIFO: " + rapor.YUKLEME_YONTEMLERI["FIFO"] +
+             ". Rotayı değiştirmez; depoda yüklerin araca hangi sırayla konacağını belirler.",
+    )
     hesapla = st.button("Rotayı Hesapla", type="primary", width="stretch")
     st.caption("İpucu: Adresleri 'Mahalle, İlçe, İl' biçiminde yazın. Bulunamayan bir yer için adres yerine "
                "'41.2867, 36.33' veya 'Depo (41.2867, 36.33)' gibi enlem, boylam da yazabilirsiniz "
@@ -257,6 +262,14 @@ with sag:
     st.subheader("📋 Durak sırası")
     st.dataframe(durak_tablosu.drop(columns=["Enlem", "Boylam"]), hide_index=True, width="stretch")
 
+# --- Yükleme planı (LIFO/FIFO): depoda hangi yük araca kaçıncı sırada konacak
+yukleme_tablosu = rapor.yukleme_plani(sonuc["optimize_rotalar"], sonuc["noktalar"], yukleme_yontemi,
+                                      sonuc["arac_adlari"])
+st.subheader(f"📦 Yükleme planı ({yukleme_yontemi})")
+st.caption(rapor.YUKLEME_YONTEMLERI[yukleme_yontemi] + ". Her durakta boşaltılacak yük kapının önünde olacak "
+           "şekilde sıralanmıştır; 1. sıra depoda araca ilk konan yüktür.")
+st.dataframe(yukleme_tablosu, hide_index=True, width="stretch")
+
 # --- Excel indirme
 ozet = {
     "Depo": sonuc["noktalar"][0]["adres"],
@@ -273,11 +286,13 @@ ozet = {
     "Girilen sıra toplam araç süresi (dk)": round(gir_dk, 1),
     "Tasarruf (%)": round(tasarruf, 1),
     "Durak başı teslim süresi (dk)": sonuc["servis_suresi_dk"],
+    "Yükleme yöntemi": f"{yukleme_yontemi} — {rapor.YUKLEME_YONTEMLERI[yukleme_yontemi]}",
     "Mesafe kaynağı": "OSRM (gerçek yol)" if sonuc["matris"]["kaynak"] == "osrm" else "Tahmini (kuş uçuşu × katsayı)",
 }
 st.download_button(
     "⬇️ Sonucu Excel olarak indir",
-    data=rapor.excel_olustur(ozet, {"Araçlar": arac_tablosu, "Durak Sırası": durak_tablosu}),
+    data=rapor.excel_olustur(ozet, {"Araçlar": arac_tablosu, "Durak Sırası": durak_tablosu,
+                                    "Yükleme Planı": yukleme_tablosu}),
     file_name="teslimat_rotasi.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     # Tıklayınca sayfa yeniden çalışmasın: yoksa dosya yeniden üretilir ve

@@ -22,6 +22,7 @@ Bu uygulama:
 - Noktalar arasındaki **gerçek yol mesafelerini** hesaplar,
 - Adresleri **her aracın kendi kapasitesine (kg) göre** araçlara paylaştırır (karışık filo: kamyon, kamyonet, panelvan…) ve her aracın **en kısa ziyaret sırasını** bulur,
 - Her aracın **yükünü ve doluluk oranını** gösterir,
+- Seçilen yükleme yöntemine (**LIFO / FIFO**) göre depoda yüklerin araca hangi sırayla konacağını gösteren **yükleme planı** çıkarır,
 - Sonucu haritada numaralı duraklarla, tabloda ve Excel dosyasında verir,
 - "Girilen sırayla gitseydin **X km**, optimize rota **Y km**, tasarruf **%Z**" karşılaştırmasıyla kazancı gösterir.
 
@@ -76,6 +77,13 @@ Böylece model önce araç sayısını, sonra km'yi en aza indirir. Kapalıyken 
 yakındaki tek bir durağa gönderilmesine yol açabilir. Gerçekte fazladan araç + şoför, birkaç km'den çok daha pahalıdır.
 Küçük örneklerde sonucun, tüm olasılıkları deneyen kaba kuvvet yöntemiyle **aynı optimumu** bulduğu testlerle doğrulanmıştır.
 
+**Yükleme planı (LIFO / FIFO):** Araçlar depoda yüklenip yol boyunca yalnızca boşalttığı için yükleme yöntemi **rotayı değiştirmez**;
+değiştirdiği şey depodaki yükleme sırasıdır. Her iki yöntemde de ilk teslim edilecek yük boşaltma kapısının önünde durmalıdır:
+- **LIFO** (son giren ilk çıkar, tek arka kapılı kapalı kasa/kamyonet): son teslim edilecek yük **ilk** yüklenip en içe konur.
+- **FIFO** (ilk giren ilk çıkar, önden yüklenip arkadan boşaltılan ya da yandan erişilen tenteli araç): yükler teslim sırasıyla yüklenir.
+
+(Yol üstünde hem toplama hem dağıtım yapılan problemlerde LIFO rotayı da kısıtlar; OR-Tools bunu destekler ama bu projenin kapsamında değildir.)
+
 **Karşılaştırma ("girilen sıra") nasıl hesaplanır?** Elle planlamayı taklit eder: adresler yazıldığı sırayla araca yüklenir,
 sıradaki adres sığmıyorsa araç depoya döner ve yeni araç başlar. Optimize plan bununla km ve araç sayısı olarak kıyaslanır.
 
@@ -85,7 +93,8 @@ sıradaki adres sığmıyorsa araç depoya döner ve yeni araç başlar. Optimiz
 - Durak sırası tablosu: araç, teslim edilen ve araçta kalan yük, her bacağın km/dk değeri, kümülatif toplamlar
 - Özet kartları: toplam km, kullanılan araç, ortalama doluluk, en uzun tur süresi (sürüş + durak başı teslim süresi)
 - Girilen sıra ile optimize planın karşılaştırması
-- Üç sayfalı (Özet + Araçlar + Durak Sırası) **Excel** indirme
+- **Yükleme planı** tablosu: araç, yükleme sırası, hangi durağın yükü, kg ve araçtaki konum
+- Dört sayfalı (Özet + Araçlar + Durak Sırası + Yükleme Planı) **Excel** indirme
 
 ## 📁 Proje yapısı
 
@@ -153,6 +162,7 @@ ruff check .            # kod kalitesi
   çözüm olduğu garanti edilmez. Küçük örneklerde kesin optimumu bulduğu testlerle doğrulanmıştır.
 - Bir araç günde **tek sefer** yapar; yük filoya sığmazsa ikinci sefer planlanmaz, uygulama araç eklemenizi ister.
 - Araç başına **mesai süresi sınırı** yoktur; uzun turlar için "En uzun tur" değerini kontrol edin.
+- Yükleme planı sırayı verir; koli ölçüsü, 3B yerleşim ve aks ağırlık dağılımı hesaplanmaz.
 - Tek bir yük birimi (kg) kullanılır. OR-Tools'un desteklediği şu özellikler kolayca eklenebilir:
   - İkinci bir yük boyutu (desi/hacim) ve araç tipine göre km maliyeti (kamyon km'si kamyonetten pahalı)
   - **Zaman pencereleri** (VRPTW — "müşteri 10:00–12:00 arası")

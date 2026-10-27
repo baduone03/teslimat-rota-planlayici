@@ -81,3 +81,19 @@ def test_karisik_filo_ornekte_arac_adlari_gorunur(uygulama):
     _hesapla(uygulama)
     kutu = next(b.value for b in uygulama.success if "optimize plan" in b.value)
     assert "Kamyon" in kutu
+
+
+def test_yukleme_plani_lifo_ve_fifo_ters_sirada(uygulama):
+    _hesapla(uygulama)
+
+    def ilk_yuklenen():
+        tablo = next(d.value for d in uygulama.dataframe if "Yükleme sırası" in d.value.columns)
+        return tablo.iloc[0]["Durak (teslim sırası)"]
+
+    lifo = ilk_yuklenen()
+    uygulama.radio[0].set_value("FIFO").run()
+    fifo = ilk_yuklenen()
+    assert fifo.startswith("1. ")          # FIFO: ilk teslim edilecek ilk yüklenir
+    assert not lifo.startswith("1. ")      # LIFO: ilk yüklenen, son teslim edilecek olandır
+    # Yükleme yöntemi rotayı değiştirmez → "girdiler değişti" uyarısı çıkmamalı
+    assert not any("Girdileri değiştirdiniz" in u for u in _uyarilar(uygulama))

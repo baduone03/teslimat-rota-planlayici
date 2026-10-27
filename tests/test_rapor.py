@@ -1,6 +1,7 @@
 import io
 
 import pandas as pd
+import pytest
 
 import rapor
 
@@ -47,3 +48,28 @@ def test_karisik_filoda_doluluk_her_aracin_kendi_kapasitesine_gore():
     assert list(df["Doluluk (%)"]) == [50.0, 30.0]
     durak = rapor.durak_tablosu([[0, 1, 0], [0, 2, 0]], NOKTALAR, MESAFE, SURE, arac_adlari=["Kamyonet", "Kamyon"])
     assert list(durak["Araç"]) == ["Kamyonet", "Kamyonet", "Kamyon", "Kamyon"]
+
+
+NOKTALAR_4 = NOKTALAR + [{"adres": "C", "enlem": 41.3, "boylam": 36.3, "talep": 50}]
+
+
+def test_lifo_son_teslim_edilecek_yuk_ilk_yuklenir():
+    df = rapor.yukleme_plani([[0, 1, 2, 3, 0]], NOKTALAR_4, "LIFO")
+    assert list(df["Durak (teslim sırası)"]) == ["3. C", "2. B", "1. A"]
+    assert list(df["Araçtaki konum"]) == ["En iç / en uzak", "Kapıdan 2. sıra", "Boşaltma kapısının önü"]
+    assert list(df["Yük (kg)"]) == [50, 300, 100]
+
+
+def test_fifo_teslim_sirasiyla_yuklenir_konumlar_ayni_kalir():
+    df = rapor.yukleme_plani([[0, 1, 2, 3, 0]], NOKTALAR_4, "FIFO")
+    assert list(df["Durak (teslim sırası)"]) == ["1. A", "2. B", "3. C"]
+    # Hangi yöntemle yüklenirse yüklensin, ilk teslim edilecek yük kapının önünde olmalı
+    assert df.iloc[0]["Araçtaki konum"] == "Boşaltma kapısının önü"
+
+
+def test_yukleme_plani_her_arac_icin_ayri_ve_bilinmeyen_yontem_reddedilir():
+    df = rapor.yukleme_plani([[0, 1, 0], [0, 2, 3, 0]], NOKTALAR_4, "LIFO", arac_adlari=["Kamyon", "Kamyonet 1"])
+    assert list(df["Araç"]) == ["Kamyon", "Kamyonet 1", "Kamyonet 1"]
+    assert list(df["Yükleme sırası"]) == [1, 1, 2]
+    with pytest.raises(ValueError):
+        rapor.yukleme_plani([[0, 1, 0]], NOKTALAR_4, "XYZ")

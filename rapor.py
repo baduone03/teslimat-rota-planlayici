@@ -69,6 +69,45 @@ def arac_ozeti(rotalar, noktalar, mesafe_km, sure_dk, kapasite=None, servis_sure
     return pd.DataFrame(satirlar)
 
 
+YUKLEME_YONTEMLERI = {
+    "LIFO": "Son giren ilk çıkar — tek arka kapılı araç (kapalı kasa, kamyonet)",
+    "FIFO": "İlk giren ilk çıkar — önden yüklenip arkadan boşaltılan veya yandan erişilen araç (tenteli, yan kapaklı)",
+}
+
+
+def _konum(teslim_sirasi, durak_sayisi):
+    if teslim_sirasi == 1:
+        return "Boşaltma kapısının önü"
+    if teslim_sirasi == durak_sayisi:
+        return "En iç / en uzak"
+    return f"Kapıdan {teslim_sirasi}. sıra"
+
+
+def yukleme_plani(rotalar, noktalar, yontem="LIFO", arac_adlari=None):
+    """Depoda yüklerin araca hangi sırayla konacağını gösterir.
+
+    Her iki yöntemde de ilk teslim edilecek yük boşaltma kapısına en yakın durmalıdır; değişen yükleme sırasıdır:
+      LIFO (tek arka kapı): son teslim edilecek yük İLK yüklenir (en içe), ilk teslim edilecek yük EN SON yüklenir.
+      FIFO (önden yükle / arkadan boşalt, yandan erişim): yükler teslim sırasıyla yüklenir.
+    """
+    if yontem not in YUKLEME_YONTEMLERI:
+        raise ValueError(f"Bilinmeyen yükleme yöntemi: {yontem}")
+    satirlar = []
+    for arac, rota in zip(_adlar(rotalar, arac_adlari), rotalar, strict=True):
+        duraklar = rota[1:-1]
+        teslim_sirasi = {d: i for i, d in enumerate(duraklar, start=1)}
+        yukleme_sirasi = list(reversed(duraklar)) if yontem == "LIFO" else duraklar
+        for sira, d in enumerate(yukleme_sirasi, start=1):
+            satirlar.append({
+                "Araç": arac,
+                "Yükleme sırası": sira,
+                "Durak (teslim sırası)": f"{teslim_sirasi[d]}. {noktalar[d]['adres']}",
+                "Yük (kg)": noktalar[d].get("talep", 0),
+                "Araçtaki konum": _konum(teslim_sirasi[d], len(duraklar)),
+            })
+    return pd.DataFrame(satirlar)
+
+
 def excel_olustur(ozet, sayfalar):
     """Özet + verilen tablolardan çok sayfalı Excel dosyasını bellekte oluşturur.
 
