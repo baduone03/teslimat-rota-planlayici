@@ -167,26 +167,20 @@ def adres_koordinat(adres, zaman_asimi=10):
         return sonuc
 
 
-def toplu_koordinat(adresler, yedek_koordinatlar=None, ilerleme=None):
+def toplu_koordinat(adresler, ilerleme=None):
     """Birden fazla adresi sırayla koordinata çevirir.
 
-    yedek_koordinatlar: {adres: (enlem, boylam)} — servisler bulamazsa/ulaşılamazsa kullanılır.
     ilerleme: her adresten sonra ilerleme(i, toplam, adres) şeklinde çağrılan fonksiyon.
 
     Dönüş: her adres için {"adres", "enlem", "boylam", "bulunan_adres", "kaynak"} sözlüğü.
-           "kaynak" = "nominatim", "photon", "koordinat", "yedek" veya "bulunamadi".
+           "kaynak" = "nominatim", "photon", "koordinat" veya "bulunamadi".
     """
-    yedek_koordinatlar = yedek_koordinatlar or {}
     sonuclar = []
     for i, adres in enumerate(adresler):
         try:
             bulunan = adres_koordinat(adres)
         except requests.RequestException:
             bulunan = None
-
-        if bulunan is None and adres in yedek_koordinatlar:
-            enlem, boylam = yedek_koordinatlar[adres]
-            bulunan = {"enlem": enlem, "boylam": boylam, "bulunan_adres": adres + " (yaklaşık)", "kaynak": "yedek"}
 
         bos = {"enlem": None, "boylam": None, "bulunan_adres": None, "kaynak": "bulunamadi"}
         sonuclar.append({"adres": adres, **(bulunan or bos)})

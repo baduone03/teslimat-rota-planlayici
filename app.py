@@ -15,7 +15,7 @@ import mesafe
 import optimizasyon
 import rapor
 from ornek_veriler import (ORNEK_ADRESLER, ORNEK_ARAC_SAYISI, ORNEK_DEPO, ORNEK_KAPASITE_KG,
-                           ORNEK_TALEPLER, YEDEK_KOORDINATLAR)
+                           ORNEK_TALEPLER)
 
 MIN_ADRES, MAX_ADRES = 3, 15
 MAX_ARAC = 5
@@ -36,7 +36,6 @@ def rotayi_hesapla(depo, adresler, talepler, kapasite, arac_sayisi, servis_sures
     cubuk = st.progress(0.0, text="Adresler koordinata çevriliyor…")
     noktalar = geocoding.toplu_koordinat(
         tum_adresler,
-        yedek_koordinatlar=YEDEK_KOORDINATLAR,
         ilerleme=lambda i, n, adres: cubuk.progress(i / n, text=f"Konum aranıyor ({i}/{n}): {adres}"),
     )
     cubuk.empty()
@@ -209,10 +208,6 @@ if not sonuc:
 if sonuc["bulunamayanlar"]:
     st.warning("Bulunamadığı için rotaya eklenmeyen adresler: " + ", ".join(sonuc["bulunamayanlar"]) +
                ". Daha açık yazmayı (ör. 'Mahalle, İlçe, İl') veya koordinat girmeyi deneyin.")
-yaklasiklar = [n["adres"] for n in sonuc["noktalar"] if n["kaynak"] == "yedek"]
-if yaklasiklar:
-    st.warning("Konum servisleri bu örnek adresleri o an bulamadığı/cevap vermediği için kayıtlı **yaklaşık** "
-               "koordinatlar kullanıldı: " + ", ".join(yaklasiklar))
 if sonuc["matris"]["kaynak"] == "tahmini":
     st.warning("Yol mesafesi servisine (OSRM) ulaşılamadı; mesafeler kuş uçuşu × "
                f"{mesafe.YOL_KATSAYISI} ile **tahmini** hesaplandı.")
@@ -290,7 +285,6 @@ with st.expander("📍 Bulunan konumlar (koordinatlı, kopyalanabilir)"):
         isim = n["adres"]
         if geocoding.koordinat_metni_coz(isim):  # yalnızca koordinat girilmişse okunur bir ad ver
             isim = "Depo" if i == 0 else f"Durak {i}"
-        not_ = "   # yaklaşık konum, kontrol edin" if n["kaynak"] == "yedek" else ""
-        satirlar.append(f"{isim} ({n['enlem']:.6f}, {n['boylam']:.6f}){not_}")
+        satirlar.append(f"{isim} ({n['enlem']:.6f}, {n['boylam']:.6f})")
     st.caption("İlk satır depo. Sağ üstteki simgeyle kopyalayabilirsiniz.")
     st.code("\n".join(satirlar), language=None)

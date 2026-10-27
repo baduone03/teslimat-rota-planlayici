@@ -114,8 +114,9 @@ def test_isimli_koordinat_ismi_korur_ve_servise_gidilmez():
     assert geocoding.koordinat_metni_coz("Depo (abc)") is None
 
 
-def test_ag_hatasinda_yedek_koordinat_kullanilir():
+def test_ag_hatasinda_adres_bulunamadi_olarak_isaretlenir():
     with mock.patch("geocoding.requests.get", side_effect=requests.ConnectionError):
-        sonuclar = geocoding.toplu_koordinat(["Depo"], yedek_koordinatlar={"Depo": (41.0, 36.0)})
-    assert sonuclar[0]["kaynak"] == "yedek"
-    assert (sonuclar[0]["enlem"], sonuclar[0]["boylam"]) == (41.0, 36.0)
+        sonuclar = geocoding.toplu_koordinat(["Atakum, Samsun", "Depo (41.0, 36.0)"])
+    assert sonuclar[0]["kaynak"] == "bulunamadi"
+    # Koordinatlı giriş ağ olmasa da çalışır
+    assert (sonuclar[1]["kaynak"], sonuclar[1]["enlem"]) == ("koordinat", 41.0)

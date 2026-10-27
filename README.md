@@ -24,8 +24,17 @@ Bu uygulama:
 - Sonucu haritada numaralı duraklarla, tabloda ve Excel dosyasında verir,
 - "Girilen sırayla gitseydin **X km**, optimize rota **Y km**, tasarruf **%Z**" karşılaştırmasıyla kazancı gösterir.
 
-Samsun örneğinde (Tekkeköy deposu, 8 mahalle) tek araçla adresleri yazıldığı sırayla gezmek **126,0 km**, optimize rota ise **63,8 km**: **%49,4 tasarruf** (yaklaşık 1 saat daha az yol).
-Aynı adreslere toplam 1580 kg teslimat ve 800 kg'lık araçlar verildiğinde (en az 2 araç gerekir), uygulama yükü araçlara paylaştırıp her aracın doluluk oranını gösterir.
+**Samsun örneği** (uygulama açılışta bununla gelir): İlkadım Sanayi Sitesi deposundan 7 mahalleye toplam **1380 kg** teslimat, araç kapasitesi **800 kg**, durak başı 5 dk teslim süresi.
+Sonuçlar gerçek yol verisiyle (OSRM) hesaplandı:
+
+| | Elle planlama (girilen sıra) | Optimize plan |
+|---|---|---|
+| Toplam mesafe | 100,5 km | **46,3 km** |
+| Araç sayısı | 3 | **2** |
+| Ortalama doluluk | %58 | **%86** |
+| Toplam araç süresi | 136,5 dk | **82,4 dk** |
+
+→ **%54 daha az km**, **1 araç daha az** ve yaklaşık **54 dakika** daha az araç süresi.
 
 ## ⚙️ Nasıl çalışır? (adım adım mantık)
 
