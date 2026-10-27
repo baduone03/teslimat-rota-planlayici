@@ -14,10 +14,10 @@ import harita
 import mesafe
 import optimizasyon
 import rapor
-from ornek_veriler import ORNEK_ADRESLER, ORNEK_ARAC_SAYISI, ORNEK_DEPO, ORNEK_KAPASITE_KG, ORNEK_TALEPLER
+from ornek_veriler import ORNEK_ADRESLER, ORNEK_DEPO, ORNEK_FILO, ORNEK_TALEPLER
 
 MIN_ADRES, MAX_ADRES = 3, 15
-MAX_ARAC = 5
+MAX_ARAC = 10
 
 st.set_page_config(page_title="Teslimat Rota Planlayıcı", page_icon="🚚", layout="wide")
 
@@ -25,7 +25,8 @@ st.set_page_config(page_title="Teslimat Rota Planlayıcı", page_icon="🚚", la
 # ---------------------------------------------------------------------------
 # Hesaplama
 # ---------------------------------------------------------------------------
-def rotayi_hesapla(depo, adresler, talepler, kapasite, arac_sayisi, servis_suresi_dk, araci_azalt):
+def rotayi_hesapla(depo, adresler, talepler, arac_adlari, kapasiteler, arac_turleri, servis_suresi_dk,
+                   araci_azalt):
     """Tüm adımları sırayla çalıştırıp sonuçları bir sözlükte döner."""
     tum_adresler = [depo] + adresler  # 0. indeks her zaman depo
 
@@ -63,14 +64,17 @@ def rotayi_hesapla(depo, adresler, talepler, kapasite, arac_sayisi, servis_sures
 
     # 3) Optimizasyon + girilen sıra ile karşılaştırma
     with st.spinner("En kısa rotalar aranıyor (OR-Tools)…"):
-        optimize_rotalar = optimizasyon.kapasiteli_rotalar(
-            matris["mesafe_km"], talep_listesi, kapasite, arac_sayisi, sure_limiti_sn=3, araci_azalt=araci_azalt,
+        plan = optimizasyon.filo_rotalari(
+            matris["mesafe_km"], talep_listesi, kapasiteler, sure_limiti_sn=3, araci_azalt=araci_azalt,
         )
-    if optimize_rotalar is None:
-        st.error(f"{arac_sayisi} araç × {kapasite} kg ile tüm teslimatları taşıyan bir plan bulunamadı. "
-                 "Araç sayısını veya kapasiteyi artırın.")
+    if plan is None:
+        st.error("Bu filoyla tüm teslimatları taşıyan bir plan bulunamadı (yükler araçlara bölünemiyor). "
+                 "Araç ekleyin veya kapasiteyi artırın.")
         return None
-    girilen_rotalar = optimizasyon.girilen_sira_rotalari(talep_listesi, kapasite)
+    plan = optimizasyon.esdeger_araclari_sirala(plan, arac_turleri)
+    kullanilan = [arac for arac, _ in plan]
+    optimize_rotalar = [rota for _, rota in plan]
+    girilen_rotalar = [rota for _, rota in optimizasyon.girilen_sira_filo(talep_listesi, kapasiteler)]
 
     # 4) Harita için her aracın gerçek yol çizgisi
     with st.spinner("Rota çizgileri hazırlanıyor…"):
@@ -90,9 +94,11 @@ def rotayi_hesapla(depo, adresler, talepler, kapasite, arac_sayisi, servis_sures
         "cizgiler": cizgiler,
         "bulunamayanlar": bulunamayanlar,
         "supheli_konumlar": supheli_konumlar(noktalar),
-        "kapasite": kapasite,
+        "arac_adlari": [arac_adlari[i] for i in kullanilan],
+        "arac_kapasiteleri": [kapasiteler[i] for i in kullanilan],
+        "filo_adlari": arac_adlari,
+        "filo_kapasiteleri": kapasiteler,
         "araci_azalt": araci_azalt,
-        "arac_sayisi": arac_sayisi,
         "servis_suresi_dk": servis_suresi_dk,
     }
 
@@ -137,9 +143,17 @@ with st.sidebar:
         },
     )
 
-    st.markdown("**🚛 Araç filosu**")
-    kapasite = st.number_input("Araç kapasitesi (kg)", min_value=1, value=ORNEK_KAPASITE_KG, step=50)
-    arac_sayisi = st.number_input("En fazla araç sayısı", min_value=1, max_value=MAX_ARAC, value=ORNEK_ARAC_SAYISI)
+    st.markdown(f"**🚛 Araç filosu** (en fazla {MAX_ARAC} araç)")
+    filo_tablosu = st.data_editor(
+        pd.DataFrame(ORNEK_FILO, columns=["Araç tipi", "Kapasite (kg)", "Adet"]),
+        num_rows="dynamic", hide_index=True, key="filo", width="stretch",
+        column_config={
+            "Araç tipi": st.column_config.TextColumn("Tip", width=75),
+            "Kapasite (kg)": st.column_config.NumberColumn("kg", width=55, min_value=1, step=50, format="%d"),
+            "Adet": st.column_config.NumberColumn("Adet", width=45, min_value=0, max_value=MAX_ARAC, step=1,
+                                                  default=1, format="%d"),
+        },
+    )
     araci_azalt = st.checkbox(
         "Araç sayısını en aza indir", value=True,
         help="Açık: önce mümkün olan en az araç, sonra en kısa km. Kapalı: yalnızca toplam km en aza indirilir; "
@@ -156,27 +170,29 @@ satirlar = adres_tablosu.dropna(subset=["Adres"])
 satirlar = satirlar[satirlar["Adres"].astype(str).str.strip() != ""]
 adresler = satirlar["Adres"].astype(str).str.strip().tolist()
 talepler = satirlar["Talep (kg)"].fillna(0).astype(int).tolist()
+filo = [
+    (str(tip).strip() if pd.notna(tip) and str(tip).strip() else "Araç", int(kap), int(adet))
+    for tip, kap, adet in filo_tablosu.fillna({"Kapasite (kg)": 0, "Adet": 0}).itertuples(index=False)
+    if int(kap) > 0 and int(adet) > 0
+]
+arac_adlari, kapasiteler = optimizasyon.filoyu_ac(filo)
+arac_turleri = [(tip, kap) for tip, kap, adet in filo for _ in range(adet)]
 # Ekrandaki sonucun hangi girdilerle hesaplandığını anlamak için girdilerin "imzası"
-girdi_imzasi = (depo.strip(), tuple(adresler), tuple(talepler), int(kapasite), int(arac_sayisi),
-                int(servis_suresi), bool(araci_azalt))
+girdi_imzasi = (depo.strip(), tuple(adresler), tuple(talepler), tuple(filo), int(servis_suresi), bool(araci_azalt))
 
 if hesapla:
-    en_az_arac = optimizasyon.gereken_en_az_arac(talepler, kapasite)
-    asiri = [a for a, t in zip(adresler, talepler, strict=True) if t > kapasite]
-
     if not depo.strip():
         st.error("Depo adresi boş olamaz.")
     elif not MIN_ADRES <= len(adresler) <= MAX_ADRES:
         st.error(f"{MIN_ADRES} ile {MAX_ADRES} arasında teslimat adresi girin (şu an {len(adresler)}).")
-    elif asiri:
-        st.error(f"Bu adreslerin talebi tek bir aracın kapasitesinden ({kapasite} kg) büyük: {', '.join(asiri)}")
-    elif en_az_arac > arac_sayisi:
-        st.error(f"Toplam talep {sum(talepler)} kg; {kapasite} kg'lık araçlarla en az **{en_az_arac} araç** gerekir "
-                 f"(şu an {arac_sayisi}).")
+    elif len(kapasiteler) > MAX_ARAC:
+        st.error(f"Filoda en fazla {MAX_ARAC} araç olabilir (şu an {len(kapasiteler)}).")
+    elif filo_hatalari := optimizasyon.filo_hatalari(talepler, kapasiteler, adresler):
+        st.error("\n\n".join(filo_hatalari))
     else:
         # Sonucu session_state'e koyuyoruz: harita etkileşiminde sayfa yenilense de kaybolmasın.
         st.session_state["sonuc"] = rotayi_hesapla(
-            depo.strip(), adresler, talepler, int(kapasite), int(arac_sayisi), servis_suresi, araci_azalt,
+            depo.strip(), adresler, talepler, arac_adlari, kapasiteler, arac_turleri, servis_suresi, araci_azalt,
         )
         if st.session_state["sonuc"]:
             st.session_state["sonuc"]["girdi_imzasi"] = girdi_imzasi
@@ -204,9 +220,9 @@ if sonuc["matris"]["kaynak"] == "tahmini":
 # --- Tablolar (özet kartları da bunlardan beslenir)
 mesafe_km, sure_dk = sonuc["matris"]["mesafe_km"], sonuc["matris"]["sure_dk"]
 arac_tablosu = rapor.arac_ozeti(sonuc["optimize_rotalar"], sonuc["noktalar"], mesafe_km, sure_dk,
-                                sonuc["kapasite"], sonuc["servis_suresi_dk"])
+                                sonuc["arac_kapasiteleri"], sonuc["servis_suresi_dk"], sonuc["arac_adlari"])
 durak_tablosu = rapor.durak_tablosu(sonuc["optimize_rotalar"], sonuc["noktalar"], mesafe_km, sure_dk,
-                                    sonuc["servis_suresi_dk"])
+                                    sonuc["servis_suresi_dk"], sonuc["arac_adlari"])
 
 # --- Özet kartları
 opt_km, opt_dk, opt_arac = sonuc["optimize"]
@@ -214,9 +230,10 @@ gir_km, gir_dk, gir_arac = sonuc["girilen"]
 toplam_talep = sum(n["talep"] for n in sonuc["noktalar"])
 k1, k2, k3, k4 = st.columns(4)
 k1.metric("Toplam mesafe", f"{opt_km:.1f} km")
-k2.metric("Kullanılan araç", f"{opt_arac} / {sonuc['arac_sayisi']}")
-k3.metric("Ortalama doluluk", f"%{toplam_talep / (opt_arac * sonuc['kapasite']) * 100:.0f}",
-          help="Toplam yük ÷ (kullanılan araç × kapasite)")
+k2.metric("Kullanılan araç", f"{opt_arac} / {len(sonuc['filo_kapasiteleri'])}",
+          help="Kullanılan: " + ", ".join(sonuc["arac_adlari"]))
+k3.metric("Ortalama doluluk", f"%{toplam_talep / sum(sonuc['arac_kapasiteleri']) * 100:.0f}",
+          help="Toplam yük ÷ kullanılan araçların toplam kapasitesi")
 k4.metric("En uzun tur", sure_metni(arac_tablosu["Süre (dk)"].max()),
           help="Araçlar aynı anda yola çıkarsa son aracın depoya dönüş süresi (sürüş + teslim)")
 
@@ -224,7 +241,8 @@ k4.metric("En uzun tur", sure_metni(arac_tablosu["Süre (dk)"].max()),
 tasarruf = optimizasyon.tasarruf_yuzdesi(gir_km, opt_km)
 st.success(
     f"📊 **Girilen sırayla gitseydin {gir_km:.1f} km** ({gir_arac} sefer: adresler sırayla yüklenir, araç dolunca "
-    f"depoya dönülür), **optimize plan {opt_km:.1f} km** ({opt_arac} araç) → **tasarruf %{tasarruf:.1f}** "
+    f"depoya dönülür), **optimize plan {opt_km:.1f} km** ({opt_arac} araç: {' + '.join(sonuc['arac_adlari'])}) → "
+    f"**tasarruf %{tasarruf:.1f}** "
     f"({gir_km - opt_km:.1f} km, toplam araç süresinde yaklaşık {sure_metni(max(gir_dk - opt_dk, 0))} daha az)."
 )
 
@@ -244,8 +262,9 @@ ozet = {
     "Depo": sonuc["noktalar"][0]["adres"],
     "Teslimat durağı sayısı": len(sonuc["noktalar"]) - 1,
     "Toplam talep (kg)": toplam_talep,
-    "Araç kapasitesi (kg)": sonuc["kapasite"],
-    "Kullanılan araç": opt_arac,
+    "Filo": ", ".join(f"{ad} ({kap} kg)" for ad, kap in zip(sonuc["filo_adlari"], sonuc["filo_kapasiteleri"],
+                                                            strict=True)),
+    "Kullanılan araçlar": ", ".join(sonuc["arac_adlari"]),
     "Planlama önceliği": "Önce araç sayısı, sonra km" if sonuc["araci_azalt"] else "Yalnızca toplam km",
     "Optimize plan (km)": round(opt_km, 2),
     "Optimize plan toplam araç süresi (dk)": round(opt_dk, 1),

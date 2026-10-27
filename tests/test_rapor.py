@@ -37,3 +37,13 @@ def test_excel_tum_sayfalari_icerir():
     sayfalar = pd.read_excel(io.BytesIO(veri), sheet_name=None)
     assert set(sayfalar) == {"Özet", "Araçlar", "Durak Sırası"}
     assert len(sayfalar["Durak Sırası"]) == 3
+
+
+def test_karisik_filoda_doluluk_her_aracin_kendi_kapasitesine_gore():
+    df = rapor.arac_ozeti([[0, 1, 0], [0, 2, 0]], NOKTALAR, MESAFE, SURE, kapasite=[200, 1000],
+                          arac_adlari=["Kamyonet", "Kamyon"])
+    assert list(df["Araç"]) == ["Kamyonet", "Kamyon"]
+    assert list(df["Kapasite (kg)"]) == [200, 1000]
+    assert list(df["Doluluk (%)"]) == [50.0, 30.0]
+    durak = rapor.durak_tablosu([[0, 1, 0], [0, 2, 0]], NOKTALAR, MESAFE, SURE, arac_adlari=["Kamyonet", "Kamyon"])
+    assert list(durak["Araç"]) == ["Kamyonet", "Kamyonet", "Kamyon", "Kamyon"]

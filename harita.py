@@ -26,12 +26,14 @@ def harita_olustur(sonuc):
     harita = folium.Map(location=[depo["enlem"], depo["boylam"]], zoom_start=12)
 
     # Her araç kendi renginde: rota çizgisi + ziyaret sırasına göre numaralı duraklar.
-    for arac_no, (rota, cizgi) in enumerate(zip(sonuc["optimize_rotalar"], sonuc["cizgiler"], strict=True), start=1):
-        renk = ARAC_RENKLERI[(arac_no - 1) % len(ARAC_RENKLERI)]
-        folium.PolyLine(cizgi, color=renk, weight=5, opacity=0.8, tooltip=f"Araç {arac_no}").add_to(harita)
+    rotalar = sonuc["optimize_rotalar"]
+    adlar = sonuc.get("arac_adlari") or [f"Araç {i}" for i in range(1, len(rotalar) + 1)]
+    for i, (arac_no, rota, cizgi) in enumerate(zip(adlar, rotalar, sonuc["cizgiler"], strict=True)):
+        renk = ARAC_RENKLERI[i % len(ARAC_RENKLERI)]
+        folium.PolyLine(cizgi, color=renk, weight=5, opacity=0.8, tooltip=html.escape(arac_no)).add_to(harita)
         for sira, dugum in enumerate(rota[1:-1], start=1):
             nokta = noktalar[dugum]
-            baslik = f"Araç {arac_no} · {sira}. durak"
+            baslik = f"{html.escape(arac_no)} · {sira}. durak"
             # Kullanıcı ve servis metinleri haritaya HTML olarak girer: kaçış yapılmazsa kod çalıştırılabilir.
             adres, bulunan = html.escape(nokta["adres"]), html.escape(nokta["bulunan_adres"])
             folium.Marker(

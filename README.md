@@ -4,7 +4,7 @@
 ![Canlı kontrol](https://github.com/baduone03/teslimat-rota-planlayici/actions/workflows/canli-kontrol.yml/badge.svg)
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://teslimat-rota-planlayici.streamlit.app)
 
-Bir depodan çıkıp **3–15 teslimat adresine** uğrayan ve depoya geri dönen **en kısa rotaları**, **araç kapasitesini aşmadan** hesaplayan web uygulaması.
+Bir depodan çıkıp **3–15 teslimat adresine** uğrayan ve depoya geri dönen **en kısa rotaları**, **araç kapasitesini aşmadan** hesaplayan web uygulaması. Filo **farklı kapasiteli araçlardan** (ör. kamyon + kamyonet) oluşabilir.
 Python + Streamlit ile yazıldı; **tamamen ücretsiz** servisler kullanır, **API anahtarı gerekmez**.
 
 🔗 **Canlı demo:** [teslimat-rota-planlayici.streamlit.app](https://teslimat-rota-planlayici.streamlit.app)
@@ -20,14 +20,16 @@ Bu uygulama:
 
 - Adresleri haritada bulur,
 - Noktalar arasındaki **gerçek yol mesafelerini** hesaplar,
-- Adresleri **araç kapasitesine (kg) göre araçlara paylaştırır** ve her aracın **en kısa ziyaret sırasını** bulur,
+- Adresleri **her aracın kendi kapasitesine (kg) göre** araçlara paylaştırır (karışık filo: kamyon, kamyonet, panelvan…) ve her aracın **en kısa ziyaret sırasını** bulur,
 - Her aracın **yükünü ve doluluk oranını** gösterir,
 - Sonucu haritada numaralı duraklarla, tabloda ve Excel dosyasında verir,
 - "Girilen sırayla gitseydin **X km**, optimize rota **Y km**, tasarruf **%Z**" karşılaştırmasıyla kazancı gösterir.
 
 **Samsun örneği** (uygulama açılışta bununla gelir): İlkadım Sanayi Sitesi deposundan Atakum, İlkadım ve Tekkeköy'deki 7 noktaya
-toplam **1380 kg** teslimat, araç kapasitesi **800 kg**, durak başı 5 dk teslim süresi. Tüm konumlar koordinatlıdır ve haritada doğrulanmıştır.
-Sonuçlar gerçek yol verisiyle (OSRM) hesaplandı:
+toplam **1380 kg** teslimat, durak başı 5 dk teslim süresi. Tüm konumlar koordinatlıdır ve haritada doğrulanmıştır.
+Açılıştaki filo karışıktır: **1 × Kamyon (1000 kg) + 2 × Kamyonet (600 kg)**.
+
+Aşağıdaki sonuçlar **tek tip filo** (3 × 800 kg) ile, gerçek yol verisiyle (OSRM) hesaplandı:
 
 | | Elle planlama (girilen sıra) | Optimize plan |
 |---|---|---|
@@ -67,6 +69,8 @@ adresleri araçlara paylaştır, hiçbir aracın yükü kapasitesini aşmasın, 
 15 adreste yalnızca sıralama ihtimali 15! ≈ **1,3 trilyon** olduğundan hepsini denemek pratik değildir.
 Google **OR-Tools** önce hızlı bir başlangıç çözümü kurar (*Path Cheapest Arc*: her adımda en ucuz bağlantıyı seç), sonra *Guided Local Search* ile bu çözümü birkaç saniye boyunca iyileştirir.
 Kapasite, OR-Tools'ta bir **boyut (dimension)** olarak tanımlanır: rota boyunca yük birikir ve her araçta kapasiteyi aşamaz.
+**Karışık filo:** Her aracın kapasitesi ayrı ayrı verilir (ör. `[1000, 600, 600]`); böylece ağır yük kamyona, hafif turlar kamyonete düşer.
+Doluluk oranı her aracın kendi kapasitesine göre hesaplanır. Aynı tip araçlar birbirinin aynısı olduğundan kullanılanlar sırayla numaralanır.
 **"Araç sayısını en aza indir"** seçeneği (varsayılan açık) her kullanılan araca, olası tüm km'lerin toplamından büyük bir **sabit maliyet** ekler.
 Böylece model önce araç sayısını, sonra km'yi en aza indirir. Kapalıyken yalnızca km'ye bakılır; depo şehir merkezindeyse bu, yarı boş bir aracın
 yakındaki tek bir durağa gönderilmesine yol açabilir. Gerçekte fazladan araç + şoför, birkaç km'den çok daha pahalıdır.
@@ -149,8 +153,8 @@ ruff check .            # kod kalitesi
   çözüm olduğu garanti edilmez. Küçük örneklerde kesin optimumu bulduğu testlerle doğrulanmıştır.
 - Bir araç günde **tek sefer** yapar; yük filoya sığmazsa ikinci sefer planlanmaz, uygulama araç eklemenizi ister.
 - Araç başına **mesai süresi sınırı** yoktur; uzun turlar için "En uzun tur" değerini kontrol edin.
-- Tüm araçlar aynı kapasitededir ve tek bir yük birimi (kg) kullanılır. OR-Tools'un desteklediği şu özellikler kolayca eklenebilir:
-  - **Farklı kapasiteli araçlar** (ör. kamyonet + kamyon) ve ikinci bir yük boyutu (desi/hacim)
+- Tek bir yük birimi (kg) kullanılır. OR-Tools'un desteklediği şu özellikler kolayca eklenebilir:
+  - İkinci bir yük boyutu (desi/hacim) ve araç tipine göre km maliyeti (kamyon km'si kamyonetten pahalı)
   - **Zaman pencereleri** (VRPTW — "müşteri 10:00–12:00 arası")
   - Araç başı **maksimum mesai süresi** ve TL cinsinden gerçek maliyet (yakıt + şoför) ile planlama
 - Adresler CSV/Excel'den toplu yüklenebilir.

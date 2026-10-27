@@ -82,6 +82,23 @@ def test_tek_arac_kaba_kuvvetle_ayni_optimumu_bulur(noktalar):
     assert bulunan == pytest.approx(en_iyi, abs=0.01)
 
 
+@AYAR
+@given(senaryo(), st.lists(st.integers(400, 1500), min_size=1, max_size=3), st.booleans())
+def test_karisik_filoda_her_arac_kendi_kapasitesine_uyar(s, filo, araci_azalt):
+    matris, talepler, _ = s
+    # Her durağa yetecek kadar araç olsun diye filo tekrarlanır (plan her zaman mümkün)
+    kapasiteler = (filo * len(talepler))[: len(talepler) - 1]
+    sonuc = optimizasyon.filo_rotalari(matris, talepler, kapasiteler, sure_limiti_sn=SURE, araci_azalt=araci_azalt)
+    assert sonuc is not None
+    duraklar = sorted(d for _, r in sonuc for d in r[1:-1])
+    assert duraklar == list(range(1, len(talepler)))
+    for arac, rota in sonuc:
+        assert sum(talepler[d] for d in rota) <= kapasiteler[arac]
+    # Elle plan da her seferde aracın kapasitesine uymalı
+    for arac, rota in optimizasyon.girilen_sira_filo(talepler, kapasiteler):
+        assert sum(talepler[d] for d in rota) <= kapasiteler[arac]
+
+
 # --- Koordinat okuma ------------------------------------------------------------
 
 turkiye_noktasi = st.tuples(st.floats(36.0, 42.0), st.floats(26.0, 44.5))

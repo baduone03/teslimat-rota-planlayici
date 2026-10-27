@@ -21,7 +21,7 @@ ORNEK_ADRESLER = [
     "Kılıçdede Mahallesi, İlkadım, Samsun (41.279967, 36.348052)",
 ]
 
-# Her adresin teslimat miktarı (kg). Toplam 1380 kg; 800 kg'lık araçla en az 2 araç gerekir.
+# Her adresin teslimat miktarı (kg). Toplam 1380 kg; tek bir araca sığmaz, en az 2 araç gerekir.
 ORNEK_TALEPLER = [180, 250, 120, 300, 150, 220, 160]
-ORNEK_KAPASITE_KG = 800
-ORNEK_ARAC_SAYISI = 3
+# Karışık filo: (araç tipi, kapasite kg, adet). Toplam 2200 kg kapasite.
+ORNEK_FILO = [("Kamyon", 1000, 1), ("Kamyonet", 600, 2)]

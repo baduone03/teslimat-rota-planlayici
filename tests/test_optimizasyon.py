@@ -108,3 +108,53 @@ def test_araci_azalt_secenegi_arac_sayisini_dusurur():
     assert len(az_arac) == 2
     assert _her_durak_bir_kez(az_arac, len(konumlar))
     assert all(sum(talepler[d] for d in r) <= 10 for r in az_arac)
+
+
+# --- Farklı kapasiteli araçlar (karışık filo) -------------------------------------
+
+def test_her_arac_kendi_kapasitesini_asmaz_agir_yuk_kamyona_gider():
+    noktalar = [(41.28, 36.35), (41.36, 36.23), (41.23, 36.45), (41.30, 36.33), (41.27, 36.34), (41.33, 36.28)]
+    matris = tahmini_matris(noktalar)["mesafe_km"]
+    talepler = [0, 900, 200, 150, 250, 100]        # 900 kg'lık yük yalnızca kamyona sığar
+    kapasiteler = [1000, 600, 600]                  # 0: kamyon, 1-2: kamyonet
+    sonuc = optimizasyon.filo_rotalari(matris, talepler, kapasiteler, sure_limiti_sn=1)
+
+    assert _her_durak_bir_kez([r for _, r in sonuc], len(noktalar))
+    for arac, rota in sonuc:
+        assert sum(talepler[d] for d in rota) <= kapasiteler[arac]
+    kamyon_rotasi = next(r for a, r in sonuc if a == 0)
+    assert 1 in kamyon_rotasi
+
+
+def test_elle_plan_filoyu_sirayla_kullanir_ve_basa_doner():
+    # Kamyon 10, kamyonet 5: 4+4 kamyona; sonraki 4 sığmaz → kamyonet; sonraki 4 kamyonete sığmaz → kamyon (2. sefer)
+    beklenen = [(0, [0, 1, 2, 0]), (1, [0, 3, 0]), (0, [0, 4, 0])]
+    assert optimizasyon.girilen_sira_filo([0, 4, 4, 4, 4], [10, 5]) == beklenen
+
+
+def test_elle_plan_yuku_tasiyamayan_araci_atlar():
+    assert optimizasyon.girilen_sira_filo([0, 8], [5, 10]) == [(1, [0, 1, 0])]
+
+
+def test_filo_hatalari():
+    assert optimizasyon.filo_hatalari([300, 200], [1000, 600]) == []
+    hatalar = optimizasyon.filo_hatalari([1200, 500], [1000, 600], adlar=["Büyük", "Küçük"])  # toplam 1700 > 1600
+    assert "en büyük aracın kapasitesinden (1000 kg) fazla: Büyük" in hatalar[0]
+    assert "toplam kapasitesi 1600 kg" in hatalar[1]
+    assert optimizasyon.filo_hatalari([100], []) == ["Filoda en az bir araç olmalı."]
+
+
+def test_filoyu_ac_araclari_numaralandirir():
+    adlar, kapasiteler = optimizasyon.filoyu_ac([("Kamyon", 1000, 1), ("Kamyonet", 600, 2)])
+    assert adlar == ["Kamyon", "Kamyonet 1", "Kamyonet 2"]
+    assert kapasiteler == [1000, 600, 600]
+    # Aynı tip iki ayrı satırda da olsa numara kesintisiz devam eder
+    assert optimizasyon.filoyu_ac([("Van", 500, 1), ("Van", 700, 1)])[0] == ["Van 1", "Van 2"]
+
+
+def test_esdeger_araclar_sirayla_numaralanir():
+    turler = [("Kamyon", 1000), ("Kamyonet", 600), ("Kamyonet", 600)]
+    plan = [(0, [0, 1, 0]), (2, [0, 2, 0])]           # çözücü "Kamyonet 2"yi seçmiş
+    assert optimizasyon.esdeger_araclari_sirala(plan, turler) == [(0, [0, 1, 0]), (1, [0, 2, 0])]
+    # Farklı kapasiteli aynı isimli araçlar birbirine karıştırılmaz
+    assert optimizasyon.esdeger_araclari_sirala([(1, [0, 1, 0])], [("Van", 500), ("Van", 700)]) == [(1, [0, 1, 0])]

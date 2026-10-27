@@ -38,7 +38,7 @@ def test_ornek_verilerle_hesaplanir_ve_supheli_konum_yok(uygulama):
 
 def test_girdi_degisince_eski_sonuc_uyarisi(uygulama):
     _hesapla(uygulama)
-    uygulama.number_input[0].set_value(900).run()  # kapasite değişti, butona basılmadı
+    uygulama.number_input[0].set_value(10).run()  # teslim süresi değişti, butona basılmadı
     assert any("Girdileri değiştirdiniz" in u for u in _uyarilar(uygulama))
     _hesapla(uygulama)
     assert not any("Girdileri değiştirdiniz" in u for u in _uyarilar(uygulama))
@@ -73,13 +73,11 @@ def test_bulunamayan_depo_hata_verir(uygulama):
     assert any("Depo adresi bulunamadı" in h for h in _hatalar(uygulama))
 
 
-def test_tek_araca_sigmayan_yuk_reddedilir(uygulama):
-    uygulama.number_input[0].set_value(200).run()  # kapasite 200 kg; 300 kg'lık durak var
-    _hesapla(uygulama)
-    assert any("tek bir aracın kapasitesinden" in h for h in _hatalar(uygulama))
+# Filo/kapasite hataları (en büyük araca sığmayan yük, toplam kapasite yetersiz) tablo düzenleyiciden
+# girildiği için AppTest ile değiştirilemiyor; bu kurallar test_optimizasyon.py::test_filo_hatalari'nda sınanıyor.
 
 
-def test_arac_sayisi_yetmezse_reddedilir(uygulama):
-    uygulama.number_input[1].set_value(1).run()  # 1380 kg, 1 x 800 kg araç
+def test_karisik_filo_ornekte_arac_adlari_gorunur(uygulama):
     _hesapla(uygulama)
-    assert any("en az **2 araç**" in h for h in _hatalar(uygulama))
+    kutu = next(b.value for b in uygulama.success if "optimize plan" in b.value)
+    assert "Kamyon" in kutu
