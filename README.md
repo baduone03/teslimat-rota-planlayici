@@ -36,7 +36,10 @@ Adresler ──► 1. Geocoding ──► 2. Mesafe matrisi ──► 3. Optimiz
 
 **1. Adres → koordinat (`geocoding.py`)**
 "Körfez Mahallesi, Atakum, Samsun" gibi bir metni OpenStreetMap **Nominatim** servisiyle enlem/boylama çeviririz.
-Servisin kullanım kurallarına uyarız: her istekte uygulamayı tanıtan bir **User-Agent** gönderilir, **saniyede en fazla 1 istek** atılır ve sonuçlar **önbelleğe** (bellek + JSON dosyası) alınır; aynı adres ikinci kez sorulmaz.
+Nominatim bulamazsa veya cevap vermezse aynı soru OSM tabanlı ikinci ücretsiz servis **Photon**'a (Türkiye sınırlarıyla) sorulur.
+Adres yerine doğrudan `41.2867, 36.33` gibi **koordinat** da yazılabilir; o zaman hiçbir servise gidilmez.
+Servislerin kullanım kurallarına uyarız: her istekte uygulamayı tanıtan bir **User-Agent** gönderilir, **saniyede en fazla 1 istek** atılır,
+"yoğunum" (HTTP 429) cevabında 2 sn ve 4 sn bekleyip tekrar denenir ve sonuçlar **önbelleğe** (bellek + JSON dosyası) alınır; aynı adres ikinci kez sorulmaz.
 
 **2. Mesafe matrisi (`mesafe.py`)**
 N nokta için N×N'lik bir tablo oluştururuz: `matris[i][j]` = i noktasından j noktasına **gerçek yol mesafesi** (km) ve **süresi** (dk).
@@ -67,7 +70,7 @@ sıradaki adres sığmıyorsa araç depoya döner ve yeni araç başlar. Optimiz
 | Dosya | Görevi |
 |---|---|
 | `app.py` | Streamlit arayüzü; diğer modülleri sırayla çağırır |
-| `geocoding.py` | Adres → koordinat (Nominatim), hız sınırı, önbellek |
+| `geocoding.py` | Adres → koordinat (Nominatim, yedek Photon), hız sınırı, tekrar deneme, önbellek |
 | `mesafe.py` | OSRM mesafe/süre matrisi, rota çizgisi, çevrimdışı tahmin |
 | `optimizasyon.py` | OR-Tools ile kapasiteli araç rotaları (CVRP), girilen sıra planı, tasarruf hesabı |
 | `rapor.py` | Araç özeti, durak tablosu ve Excel dosyası |
@@ -103,7 +106,7 @@ pytest
 | Teknoloji | Kullanım |
 |---|---|
 | [Streamlit](https://streamlit.io) | Web arayüzü |
-| [OpenStreetMap Nominatim](https://nominatim.org) | Adres → koordinat |
+| [OpenStreetMap Nominatim](https://nominatim.org) + [Photon](https://photon.komoot.io) | Adres → koordinat |
 | [OSRM](https://project-osrm.org) | Gerçek yol mesafesi, süre ve rota çizgisi |
 | [Google OR-Tools](https://developers.google.com/optimization) | Rota optimizasyonu (TSP / CVRP) |
 | [folium](https://python-visualization.github.io/folium/) | Etkileşimli harita |

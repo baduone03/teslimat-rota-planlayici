@@ -161,8 +161,9 @@ with st.sidebar:
     arac_sayisi = st.number_input("En fazla araç sayısı", min_value=1, max_value=MAX_ARAC, value=ORNEK_ARAC_SAYISI)
     servis_suresi = st.number_input("Durak başı teslim süresi (dk)", min_value=0, max_value=60, value=5)
     hesapla = st.button("Rotayı Hesapla", type="primary", width="stretch")
-    st.caption("İpucu: Adresleri 'Mahalle, İlçe, İl' biçiminde yazın. Kapasite kısıtı istemiyorsanız "
-               "talepleri 0 bırakın. Nominatim kuralı gereği her adres ~1 sn sürer; aynı adres ikinci kez hızlı gelir.")
+    st.caption("İpucu: Adresleri 'Mahalle, İlçe, İl' biçiminde yazın. Bulunamayan bir yer için adres yerine "
+               "'41.2867, 36.33' gibi enlem, boylam da yazabilirsiniz (Google Haritalar'da noktaya basılı tutun). "
+               "Kapasite kısıtı istemiyorsanız talepleri 0 bırakın. Her adres ~1 sn sürer; aynı adres ikinci kez hızlı gelir.")
 
 if hesapla:
     satirlar = adres_tablosu.dropna(subset=["Adres"])
@@ -195,9 +196,12 @@ if not sonuc:
 
 # --- Uyarılar
 if sonuc["bulunamayanlar"]:
-    st.warning("Bulunamadığı için rotaya eklenmeyen adresler: " + ", ".join(sonuc["bulunamayanlar"]))
-if any(n["kaynak"] == "yedek" for n in sonuc["noktalar"]):
-    st.warning("Konum servisine ulaşılamadı; bazı örnek adresler için kayıtlı **yaklaşık** koordinatlar kullanıldı.")
+    st.warning("Bulunamadığı için rotaya eklenmeyen adresler: " + ", ".join(sonuc["bulunamayanlar"]) +
+               ". Daha açık yazmayı (ör. 'Mahalle, İlçe, İl') veya koordinat girmeyi deneyin.")
+yaklasiklar = [n["adres"] for n in sonuc["noktalar"] if n["kaynak"] == "yedek"]
+if yaklasiklar:
+    st.warning("Konum servisleri bu örnek adresleri o an bulamadığı/cevap vermediği için kayıtlı **yaklaşık** "
+               "koordinatlar kullanıldı: " + ", ".join(yaklasiklar))
 if sonuc["matris"]["kaynak"] == "tahmini":
     st.warning("Yol mesafesi servisine (OSRM) ulaşılamadı; mesafeler kuş uçuşu × "
                f"{mesafe.YOL_KATSAYISI} ile **tahmini** hesaplandı.")
