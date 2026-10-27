@@ -61,13 +61,15 @@ def tasarruf_yuzdesi(eski, yeni):
     return (eski - yeni) / eski * 100
 
 
-def kapasiteli_rotalar(mesafe_km, talepler=None, kapasite=None, arac_sayisi=1, depo=0, sure_limiti_sn=2):
+def kapasiteli_rotalar(mesafe_km, talepler=None, kapasite=None, arac_sayisi=1, depo=0, sure_limiti_sn=2,
+                       araci_azalt=False):
     """Mesafe matrisine göre araç rotalarını bulur (CVRP).
 
     mesafe_km: NxN liste, mesafe_km[i][j] = i'den j'ye yol mesafesi (km).
                Tek yönlü yollar yüzünden simetrik olmayabilir; sorun değil.
     talepler: her düğümün talebi (kg, tam sayı; depo için 0). None → kapasite kısıtı yok.
     kapasite: araç başı kapasite (kg). None → kapasite kısıtı yok.
+    araci_azalt: True → önce kullanılan araç sayısı, sonra km en aza indirilir.
     Dönüş: kullanılan her araç için [depo, ..., depo] listesi. Uygun çözüm yoksa None.
     """
     n = len(mesafe_km)
@@ -103,7 +105,12 @@ def kapasiteli_rotalar(mesafe_km, talepler=None, kapasite=None, arac_sayisi=1, d
             "Kapasite",
         )
 
-    # 4) Arama stratejisi: hızlı başlangıç + yerel arama ile iyileştirme.
+    # 4) Araç sayısını önceliklendirme: her kullanılan araca, olası tüm km'lerin toplamından büyük
+    #    bir "sabit maliyet" eklenir. Böylece 1 araç eksiltmek her zaman km kazancından daha değerli olur.
+    if araci_azalt:
+        model.SetFixedCostOfAllVehicles(sum(map(sum, matris_m)) + 1)
+
+    # 5) Arama stratejisi: hızlı başlangıç + yerel arama ile iyileştirme.
     parametreler = pywrapcp.DefaultRoutingSearchParameters()
     parametreler.first_solution_strategy = routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC
     parametreler.local_search_metaheuristic = routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH
@@ -113,7 +120,7 @@ def kapasiteli_rotalar(mesafe_km, talepler=None, kapasite=None, arac_sayisi=1, d
     if cozum is None:
         return None
 
-    # 5) Çözümü araç başına düğüm listesine çevir; hiç durağı olmayan araçları atla.
+    # 6) Çözümü araç başına düğüm listesine çevir; hiç durağı olmayan araçları atla.
     rotalar = []
     for arac in range(arac_sayisi):
         rota = []

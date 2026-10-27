@@ -28,7 +28,7 @@ st.set_page_config(page_title="Teslimat Rota Planlayıcı", page_icon="🚚", la
 # ---------------------------------------------------------------------------
 # Hesaplama
 # ---------------------------------------------------------------------------
-def rotayi_hesapla(depo, adresler, talepler, kapasite, arac_sayisi, servis_suresi_dk):
+def rotayi_hesapla(depo, adresler, talepler, kapasite, arac_sayisi, servis_suresi_dk, araci_azalt):
     """Tüm adımları sırayla çalıştırıp sonuçları bir sözlükte döner."""
     tum_adresler = [depo] + adresler  # 0. indeks her zaman depo
 
@@ -50,6 +50,10 @@ def rotayi_hesapla(depo, adresler, talepler, kapasite, arac_sayisi, servis_sures
         return None
     bulunamayanlar = [n["adres"] for n in noktalar if n["kaynak"] == "bulunamadi"]
     noktalar = [n for n in noktalar if n["kaynak"] != "bulunamadi"]
+    # "Depo (41.27, 36.35)" gibi koordinatlı girişlerde tablolarda yalnızca isim görünsün.
+    for n in noktalar:
+        if n["kaynak"] == "koordinat":
+            n["adres"] = n["bulunan_adres"]
     if len(noktalar) - 1 < MIN_ADRES:
         st.error(f"En az {MIN_ADRES} teslimat adresi bulunmalı. Bulunamayanlar: {', '.join(bulunamayanlar)}")
         return None
@@ -64,7 +68,7 @@ def rotayi_hesapla(depo, adresler, talepler, kapasite, arac_sayisi, servis_sures
     # 3) Optimizasyon + girilen sıra ile karşılaştırma
     with st.spinner("En kısa rotalar aranıyor (OR-Tools)…"):
         optimize_rotalar = optimizasyon.kapasiteli_rotalar(
-            matris["mesafe_km"], talep_listesi, kapasite, arac_sayisi, sure_limiti_sn=3,
+            matris["mesafe_km"], talep_listesi, kapasite, arac_sayisi, sure_limiti_sn=3, araci_azalt=araci_azalt,
         )
     if optimize_rotalar is None:
         st.error(f"{arac_sayisi} araç × {kapasite} kg ile tüm teslimatları taşıyan bir plan bulunamadı. "
@@ -90,6 +94,7 @@ def rotayi_hesapla(depo, adresler, talepler, kapasite, arac_sayisi, servis_sures
         "cizgiler": cizgiler,
         "bulunamayanlar": bulunamayanlar,
         "kapasite": kapasite,
+        "araci_azalt": araci_azalt,
         "arac_sayisi": arac_sayisi,
         "servis_suresi_dk": servis_suresi_dk,
     }
@@ -160,6 +165,11 @@ with st.sidebar:
     st.markdown("**🚛 Araç filosu**")
     kapasite = st.number_input("Araç kapasitesi (kg)", min_value=1, value=ORNEK_KAPASITE_KG, step=50)
     arac_sayisi = st.number_input("En fazla araç sayısı", min_value=1, max_value=MAX_ARAC, value=ORNEK_ARAC_SAYISI)
+    araci_azalt = st.checkbox(
+        "Araç sayısını en aza indir", value=True,
+        help="Açık: önce mümkün olan en az araç, sonra en kısa km. Kapalı: yalnızca toplam km en aza indirilir; "
+             "bu durumda yarı boş bir araç yakındaki tek bir durağa gönderilebilir.",
+    )
     servis_suresi = st.number_input("Durak başı teslim süresi (dk)", min_value=0, max_value=60, value=5)
     hesapla = st.button("Rotayı Hesapla", type="primary", width="stretch")
     st.caption("İpucu: Adresleri 'Mahalle, İlçe, İl' biçiminde yazın. Bulunamayan bir yer için adres yerine "
@@ -186,7 +196,7 @@ if hesapla:
     else:
         # Sonucu session_state'e koyuyoruz: harita etkileşiminde sayfa yenilense de kaybolmasın.
         st.session_state["sonuc"] = rotayi_hesapla(
-            depo.strip(), adresler, talepler, int(kapasite), int(arac_sayisi), servis_suresi,
+            depo.strip(), adresler, talepler, int(kapasite), int(arac_sayisi), servis_suresi, araci_azalt,
         )
 
 sonuc = st.session_state.get("sonuc")
@@ -252,6 +262,7 @@ ozet = {
     "Toplam talep (kg)": toplam_talep,
     "Araç kapasitesi (kg)": sonuc["kapasite"],
     "Kullanılan araç": opt_arac,
+    "Planlama önceliği": "Önce araç sayısı, sonra km" if sonuc["araci_azalt"] else "Yalnızca toplam km",
     "Optimize plan (km)": round(opt_km, 2),
     "Optimize plan toplam araç süresi (dk)": round(opt_dk, 1),
     "Girilen sıra (km)": round(gir_km, 2),
@@ -276,7 +287,7 @@ st.download_button(
 with st.expander("📍 Bulunan konumlar (koordinatlı, kopyalanabilir)"):
     satirlar = []
     for i, n in enumerate(sonuc["noktalar"]):
-        isim = n["bulunan_adres"] if n["kaynak"] == "koordinat" else n["adres"]
+        isim = n["adres"]
         if geocoding.koordinat_metni_coz(isim):  # yalnızca koordinat girilmişse okunur bir ad ver
             isim = "Depo" if i == 0 else f"Durak {i}"
         not_ = "   # yaklaşık konum, kontrol edin" if n["kaynak"] == "yedek" else ""

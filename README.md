@@ -52,6 +52,9 @@ adresleri araçlara paylaştır, hiçbir aracın yükü kapasitesini aşmasın, 
 15 adreste yalnızca sıralama ihtimali 15! ≈ **1,3 trilyon** olduğundan hepsini denemek pratik değildir.
 Google **OR-Tools** önce hızlı bir başlangıç çözümü kurar (*Path Cheapest Arc*: her adımda en ucuz bağlantıyı seç), sonra *Guided Local Search* ile bu çözümü birkaç saniye boyunca iyileştirir.
 Kapasite, OR-Tools'ta bir **boyut (dimension)** olarak tanımlanır: rota boyunca yük birikir ve her araçta kapasiteyi aşamaz.
+**"Araç sayısını en aza indir"** seçeneği (varsayılan açık) her kullanılan araca, olası tüm km'lerin toplamından büyük bir **sabit maliyet** ekler.
+Böylece model önce araç sayısını, sonra km'yi en aza indirir. Kapalıyken yalnızca km'ye bakılır; depo şehir merkezindeyse bu, yarı boş bir aracın
+yakındaki tek bir durağa gönderilmesine yol açabilir. Gerçekte fazladan araç + şoför, birkaç km'den çok daha pahalıdır.
 Küçük örneklerde sonucun, tüm olasılıkları deneyen kaba kuvvet yöntemiyle **aynı optimumu** bulduğu testlerle doğrulanmıştır.
 
 **Karşılaştırma ("girilen sıra") nasıl hesaplanır?** Elle planlamayı taklit eder: adresler yazıldığı sırayla araca yüklenir,
@@ -119,7 +122,7 @@ pytest
 - Tüm araçlar aynı kapasitededir ve tek bir yük birimi (kg) kullanılır. OR-Tools'un desteklediği şu özellikler kolayca eklenebilir:
   - **Farklı kapasiteli araçlar** (ör. kamyonet + kamyon) ve ikinci bir yük boyutu (desi/hacim)
   - **Zaman pencereleri** (VRPTW — "müşteri 10:00–12:00 arası")
-  - Araç başı **maksimum mesai süresi** ve araç kullanımına **sabit maliyet**
+  - Araç başı **maksimum mesai süresi** ve TL cinsinden gerçek maliyet (yakıt + şoför) ile planlama
 - Adresler CSV/Excel'den toplu yüklenebilir.
 
 ## 🚀 Streamlit Community Cloud'a ücretsiz yayınlama

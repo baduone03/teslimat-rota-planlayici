@@ -90,3 +90,21 @@ def test_girilen_sira_araclari_sirayla_doldurur():
     assert optimizasyon.girilen_sira_rotalari([0, 5, 5, 5], kapasite=10) == [[0, 1, 2, 0], [0, 3, 0]]
     assert optimizasyon.girilen_sira_rotalari([0, 5, 5, 5]) == [[0, 1, 2, 3, 0]]
     assert optimizasyon.gereken_en_az_arac([0, 5, 5, 5], 10) == 2
+
+
+def test_araci_azalt_secenegi_arac_sayisini_dusurur():
+    # Doğru üzerinde: doğuda 2 durak (+10 km), batıda 2 durak (-10 km), depoya yakın 1 durak (+1 km).
+    # Talepler kapasiteyi zorluyor: sadece km'ye bakılırsa 3 araç (doğu, batı, yakın) en kısası;
+    # 2 araçla da taşınabilir ama araçlar doğu-batı arasında gidip gelmek zorunda kalır.
+    konumlar = [0, 10, 10, -10, -10, 1]
+    matris = [[abs(a - b) for b in konumlar] for a in konumlar]
+    talepler = [0, 5, 3, 5, 3, 4]  # toplam 20 kg, kapasite 10 → en az 2 araç
+
+    sadece_km = optimizasyon.kapasiteli_rotalar(matris, talepler, kapasite=10, arac_sayisi=3, sure_limiti_sn=1)
+    az_arac = optimizasyon.kapasiteli_rotalar(matris, talepler, kapasite=10, arac_sayisi=3, sure_limiti_sn=1,
+                                              araci_azalt=True)
+
+    assert len(sadece_km) == 3 and optimizasyon.toplam_uzunluk(matris, sadece_km) == 42
+    assert len(az_arac) == 2
+    assert _her_durak_bir_kez(az_arac, len(konumlar))
+    assert all(sum(talepler[d] for d in r) <= 10 for r in az_arac)
