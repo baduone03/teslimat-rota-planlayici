@@ -11,7 +11,7 @@ import pandas as pd
 
 def rota_suresi(rota, sure_dk, servis_suresi_dk=0):
     """Sürüş süresi + (durak sayısı × durak başı teslim süresi)."""
-    surus = sum(sure_dk[a][b] for a, b in zip(rota, rota[1:]))
+    surus = sum(sure_dk[a][b] for a, b in zip(rota, rota[1:], strict=False))
     return surus + servis_suresi_dk * (len(rota) - 2)
 
 
@@ -21,7 +21,7 @@ def durak_tablosu(rotalar, noktalar, mesafe_km, sure_dk, servis_suresi_dk=0):
     for arac_no, rota in enumerate(rotalar, start=1):
         kalan_yuk = sum(noktalar[d].get("talep", 0) for d in rota[1:-1])
         toplam_km = toplam_dk = 0.0
-        for sira, (onceki, simdiki) in enumerate(zip(rota, rota[1:]), start=1):
+        for sira, (onceki, simdiki) in enumerate(zip(rota, rota[1:], strict=False), start=1):
             km = mesafe_km[onceki][simdiki]
             dk = sure_dk[onceki][simdiki]
             depo_mu = simdiki == rota[0]
@@ -55,7 +55,7 @@ def arac_ozeti(rotalar, noktalar, mesafe_km, sure_dk, kapasite=None, servis_sure
             "Durak sayısı": len(rota) - 2,
             "Yük (kg)": yuk,
             "Doluluk (%)": round(yuk / kapasite * 100, 1) if kapasite else None,
-            "Mesafe (km)": round(sum(mesafe_km[a][b] for a, b in zip(rota, rota[1:])), 2),
+            "Mesafe (km)": round(sum(mesafe_km[a][b] for a, b in zip(rota, rota[1:], strict=False)), 2),
             "Süre (dk)": round(rota_suresi(rota, sure_dk, servis_suresi_dk), 1),
         })
     return pd.DataFrame(satirlar)

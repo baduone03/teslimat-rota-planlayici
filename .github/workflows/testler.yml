@@ -13,5 +13,8 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - run: pip install -r requirements.txt
-      - run: pytest -q
+      - run: pip install -r requirements.txt -r requirements-dev.txt
+      - name: Kod kalitesi (ruff)
+        run: ruff check .
+      - name: Testler + kod kapsamı
+        run: pytest -q --cov --cov-report=term-missing --cov-fail-under=90

@@ -14,8 +14,7 @@ import harita
 import mesafe
 import optimizasyon
 import rapor
-from ornek_veriler import (ORNEK_ADRESLER, ORNEK_ARAC_SAYISI, ORNEK_DEPO, ORNEK_KAPASITE_KG,
-                           ORNEK_TALEPLER)
+from ornek_veriler import ORNEK_ADRESLER, ORNEK_ARAC_SAYISI, ORNEK_DEPO, ORNEK_KAPASITE_KG, ORNEK_TALEPLER
 
 MIN_ADRES, MAX_ADRES = 3, 15
 MAX_ARAC = 5
@@ -38,7 +37,7 @@ def rotayi_hesapla(depo, adresler, talepler, kapasite, arac_sayisi, servis_sures
     )
     cubuk.empty()
     # Talebi noktanın içine koyuyoruz: bulunamayan adresler elenince talepler kaymasın.
-    for nokta, talep in zip(noktalar, [0] + talepler):
+    for nokta, talep in zip(noktalar, [0] + talepler, strict=True):
         nokta["talep"] = talep
 
     if noktalar[0]["kaynak"] == "bulunamadi":
@@ -149,8 +148,9 @@ with st.sidebar:
     servis_suresi = st.number_input("Durak başı teslim süresi (dk)", min_value=0, max_value=60, value=5)
     hesapla = st.button("Rotayı Hesapla", type="primary", width="stretch")
     st.caption("İpucu: Adresleri 'Mahalle, İlçe, İl' biçiminde yazın. Bulunamayan bir yer için adres yerine "
-               "'41.2867, 36.33' veya 'Depo (41.2867, 36.33)' gibi enlem, boylam da yazabilirsiniz (Google Haritalar'da noktaya basılı tutun). "
-               "Kapasite kısıtı istemiyorsanız talepleri 0 bırakın. Her adres ~1 sn sürer; aynı adres ikinci kez hızlı gelir.")
+               "'41.2867, 36.33' veya 'Depo (41.2867, 36.33)' gibi enlem, boylam da yazabilirsiniz "
+               "(Google Haritalar'da noktaya basılı tutun). Kapasite kısıtı istemiyorsanız talepleri 0 bırakın. "
+               "Her adres ~1 sn sürer; aynı adres ikinci kez hızlı gelir.")
 
 satirlar = adres_tablosu.dropna(subset=["Adres"])
 satirlar = satirlar[satirlar["Adres"].astype(str).str.strip() != ""]
@@ -162,7 +162,7 @@ girdi_imzasi = (depo.strip(), tuple(adresler), tuple(talepler), int(kapasite), i
 
 if hesapla:
     en_az_arac = optimizasyon.gereken_en_az_arac(talepler, kapasite)
-    asiri = [a for a, t in zip(adresler, talepler) if t > kapasite]
+    asiri = [a for a, t in zip(adresler, talepler, strict=True) if t > kapasite]
 
     if not depo.strip():
         st.error("Depo adresi boş olamaz.")

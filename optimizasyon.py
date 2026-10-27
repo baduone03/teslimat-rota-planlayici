@@ -114,7 +114,7 @@ def kapasiteli_rotalar(mesafe_km, talepler=None, kapasite=None, arac_sayisi=1, d
     parametreler = pywrapcp.DefaultRoutingSearchParameters()
     parametreler.first_solution_strategy = routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC
     parametreler.local_search_metaheuristic = routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH
-    parametreler.time_limit.FromSeconds(sure_limiti_sn)
+    parametreler.time_limit.FromMilliseconds(int(sure_limiti_sn * 1000))  # 0.3 sn gibi kesirli süreler de olur
 
     cozum = model.SolveWithParameters(parametreler)
     if cozum is None:

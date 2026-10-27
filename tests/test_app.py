@@ -55,3 +55,31 @@ def test_turkiye_disi_koordinat_uyarilir(uygulama):
     uygulama.text_input[0].set_value("Paris (48.8566, 2.3522)").run()
     _hesapla(uygulama)
     assert any("Türkiye sınırları dışında" in u for u in _uyarilar(uygulama))
+
+
+def _hatalar(at):
+    return [h.value for h in at.error]
+
+
+def test_bos_depo_reddedilir(uygulama):
+    uygulama.text_input[0].set_value("").run()
+    _hesapla(uygulama)
+    assert any("Depo adresi boş olamaz" in h for h in _hatalar(uygulama))
+
+
+def test_bulunamayan_depo_hata_verir(uygulama):
+    uygulama.text_input[0].set_value("Hiç olmayan bir yer xyz").run()  # ağ kapalı → bulunamaz
+    _hesapla(uygulama)
+    assert any("Depo adresi bulunamadı" in h for h in _hatalar(uygulama))
+
+
+def test_tek_araca_sigmayan_yuk_reddedilir(uygulama):
+    uygulama.number_input[0].set_value(200).run()  # kapasite 200 kg; 300 kg'lık durak var
+    _hesapla(uygulama)
+    assert any("tek bir aracın kapasitesinden" in h for h in _hatalar(uygulama))
+
+
+def test_arac_sayisi_yetmezse_reddedilir(uygulama):
+    uygulama.number_input[1].set_value(1).run()  # 1380 kg, 1 x 800 kg araç
+    _hesapla(uygulama)
+    assert any("en az **2 araç**" in h for h in _hatalar(uygulama))

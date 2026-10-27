@@ -1,0 +1,6 @@
+# Geliştirme ve test araçları (Streamlit Cloud bunları kurmaz; sadece requirements.txt'yi kurar)
+pytest==9.1.1
+pytest-cov==7.1.0
+hypothesis==6.170.12
+ruff==0.17.3
+playwright==1.64.1

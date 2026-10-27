@@ -1,0 +1,11 @@
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+# E/W: stil, F: hatalar (kullanılmayan import/değişken vb.), I: import sırası, B: olası hatalar, UP: güncel Python
+select = ["E", "W", "F", "I", "B", "UP"]
+
+[tool.coverage.run]
+source = ["."]
+omit = ["tests/*", "tests_canli/*"]

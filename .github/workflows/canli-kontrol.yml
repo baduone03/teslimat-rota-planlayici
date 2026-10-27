@@ -1,0 +1,30 @@
+name: canli-kontrol
+
+# Yayındaki uygulamayı ve kullandığı ücretsiz servisleri (Nominatim, Photon, OSRM) her gün gerçekten dener.
+# Bir şey bozulursa iş akışı kırmızı olur ve GitHub e-posta ile haber verir.
+# Yan etki: uygulamayı her gün ziyaret ettiği için Streamlit Cloud'da uyku moduna girmesini önler.
+on:
+  schedule:
+    - cron: "23 5 * * *"  # her gün 05:23 UTC (08:23 TSİ)
+  workflow_dispatch:  # Actions sekmesinden elle de çalıştırılabilir
+
+jobs:
+  canli:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt -r requirements-dev.txt
+      - run: python -m playwright install --with-deps chromium
+      - name: Canlı duman testleri
+        run: pytest tests_canli -v
+      - name: Ekran görüntüsünü sakla
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: canli-kontrol-ekran-goruntusu
+          path: canli_kontrol.png
+          if-no-files-found: ignore

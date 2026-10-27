@@ -64,3 +64,25 @@ def test_baska_sehre_dusen_adres_yakalanir_ama_ters_denmez():
 
 def test_normal_sehir_ici_noktalarda_uyari_yok():
     assert mesafe.supheli_uzak_noktalar(SAMSUN) == []
+
+
+def _osrm_yaniti(veri):
+    yanit = mock.Mock()
+    yanit.raise_for_status.return_value = None
+    yanit.json.return_value = veri
+    return yanit
+
+
+def test_rota_geometrisi_geojson_sirasini_cevirir():
+    veri = {"code": "Ok", "routes": [{"geometry": {"coordinates": [[36.0, 41.0], [36.1, 41.1]]}}]}
+    with mock.patch("mesafe.requests.get", return_value=_osrm_yaniti(veri)):
+        assert mesafe.rota_geometrisi([(41.0, 36.0), (41.1, 36.1)]) == [(41.0, 36.0), (41.1, 36.1)]
+
+
+@pytest.mark.parametrize("veri", [
+    {"code": "NoRoute", "message": "Yol yok"},                                            # OSRM hata kodu
+    {"code": "Ok", "distances": [[0, 1000], [None, 0]], "durations": [[0, 60], [None, 0]]},  # bir çift yolsuz
+])
+def test_osrm_hatali_veya_eksik_cevapta_tahmine_duser(veri):
+    with mock.patch("mesafe.requests.get", return_value=_osrm_yaniti(veri)):
+        assert mesafe.mesafe_matrisi([(41.0, 36.0), (41.1, 36.1)])["kaynak"] == "tahmini"

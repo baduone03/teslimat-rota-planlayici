@@ -1,6 +1,7 @@
 # 🚚 Teslimat Rota Planlayıcı
 
 ![Testler](https://github.com/baduone03/teslimat-rota-planlayici/actions/workflows/testler.yml/badge.svg)
+![Canlı kontrol](https://github.com/baduone03/teslimat-rota-planlayici/actions/workflows/canli-kontrol.yml/badge.svg)
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://teslimat-rota-planlayici.streamlit.app)
 
 Bir depodan çıkıp **3–15 teslimat adresine** uğrayan ve depoya geri dönen **en kısa rotaları**, **araç kapasitesini aşmadan** hesaplayan web uygulaması.
@@ -113,11 +114,21 @@ streamlit run app.py
 
 Tarayıcıda `http://localhost:8501` açılır. Soldaki örnek adreslerle doğrudan **Rotayı Hesapla**'ya basabilirsiniz.
 
-**Testleri çalıştırmak için:**
+## 🧪 Testler ve kalite kontrolü
 
 ```bash
-pytest
+pip install -r requirements-dev.txt
+pytest --cov            # tüm testler + kod kapsamı
+ruff check .            # kod kalitesi
 ```
+
+| Katman | Ne yapar | Nerede |
+|---|---|---|
+| **Birim testleri** | Her modülü tek başına sınar (ör. koordinat okuma, kapasite kısıtı, Excel çıktısı). Ağ çağrıları taklit edilir. | `tests/test_*.py` |
+| **Uçtan uca arayüz testleri** | Streamlit **AppTest** ile uygulamayı tarayıcısız çalıştırır: butona basar, girdi değiştirir, uyarı ve hataları kontrol eder. | `tests/test_app.py` |
+| **Özellik tabanlı testler** | **Hypothesis** yüzlerce rastgele senaryo üretir ve kuralların hiç bozulmadığını kontrol eder: kapasite aşılmaz, her durak bir kez ziyaret edilir, optimize plan elle plandan uzun olmaz, tek araçta sonuç kaba kuvvetle bulunan kesin optimuma eşittir. | `tests/test_ozellikler.py` |
+| **Canlı duman testleri** | GitHub Actions **her gün** gerçek Nominatim, Photon ve OSRM servislerini ve yayındaki uygulamayı bir tarayıcıyla (Playwright) dener. Bir servis bozulursa e-postayla haber verir; yan etki olarak uygulamayı uyku modundan uzak tutar. | `tests_canli/` |
+| **Kod kalitesi** | **ruff** ile stil ve olası hata kontrolü; kod kapsamı **%90'ın altına düşerse** CI başarısız olur (şu an ~%97). | `.github/workflows/testler.yml` |
 
 ## 🧰 Kullanılan teknolojiler (hepsi ücretsiz)
 
