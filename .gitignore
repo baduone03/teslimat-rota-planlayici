@@ -218,3 +218,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Geocoding önbellek dosyası (çalışma sırasında oluşur)
+veri/
